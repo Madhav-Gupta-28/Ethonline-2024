@@ -2,7 +2,10 @@
 pragma solidity ^0.8.0;
 
 // Import OpenZeppelin's ERC20 contract
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+
+import {MemeBattle} from "./MemeBattle.sol";
+
 
 // BattleFactory Contract
 contract BattleFactory {
@@ -13,6 +16,8 @@ contract BattleFactory {
     }
 
     BattleInfo[] public battles;
+
+    
 
     event BattleCreated(address indexed battleAddress, string[] memeNames, address[] memeTokenAddresses);
 
