@@ -1,22 +1,27 @@
 "use client";
 
-import { createThirdwebClient } from "thirdweb";
-import { ThirdwebProvider, ConnectButton } from "thirdweb/react";
-import { createWallet, inAppWallet } from "thirdweb/wallets";
+import React from 'react';
+import { useWallet } from '../app/WalletContext';
 
-const client = createThirdwebClient({ clientId: "5101ab374c610f458813c8583fffa1da" }); // Replace with your actual client ID
+const WalletConnectButton = () => {
+  const { address, connectWallet, disconnectWallet } = useWallet();
 
-const wallets = [
-  inAppWallet(),
-  createWallet("io.metamask"),
-  createWallet("com.coinbase.wallet"),
-  createWallet("me.rainbow"),
-];
-
-export default function WalletConnectButton() {
   return (
-    <ThirdwebProvider>
-      <ConnectButton client={client} wallets={wallets} />
-    </ThirdwebProvider>
+    <div>
+      {address ? (
+        <div>
+          <p>Connected: {address.slice(0, 6)}...{address.slice(-4)}</p>
+          <button onClick={disconnectWallet} className="bg-red-500 text-white px-4 py-2 mt-2">
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <button onClick={connectWallet} className="bg-blue-500 text-white px-4 py-2">
+          Connect Wallet
+        </button>
+      )}
+    </div>
   );
-}
+};
+
+export default WalletConnectButton;

@@ -1,21 +1,11 @@
-'use client';
-import WalletConnectButton from '../../components/WalletConnectButton';
-
-
+"use client";
+import WalletConnectButton from "../../components/WalletConnectButton";
 
 export default function Dapp() {
-
   return (
-
     <main className="p-4">
       <h1>Welcome to the dapp Page</h1>
       <WalletConnectButton />
-
     </main>
-
-
-  
-
-
   );
 }
