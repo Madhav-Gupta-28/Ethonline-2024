@@ -1,17 +1,13 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
-import { getStorage, FirebaseStorage } from "firebase/storage";
-// import dotenv from 'dotenv';
-// dotenv.config();
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD2MZ6D7tmt1aROyNahpNHAGRMk4SWMjRA",
-  authDomain: "memebattle-7d663.firebaseapp.com",
-  projectId: "memebattle-7d663",
-  storageBucket: "memebattle-7d663.appspot.com",
-  messagingSenderId: "868251072577",
-  appId: "1:868251072577:web:81b5e75aa95af175f4eec0"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
