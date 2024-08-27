@@ -13,7 +13,7 @@
     "@chakra-ui/react": "^2.8.2",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
-    "@ethsign/sp-sdk": "^0.7.1",
+    "@ethsign/sp-sdk": "^0.7.2",
     "@rainbow-me/rainbowkit": "^2.1.5",
     "@tanstack/react-query": "^5.52.1",
     "@thirdweb-dev/react": "^4.9.4",
