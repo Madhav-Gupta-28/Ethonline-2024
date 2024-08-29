@@ -12,46 +12,51 @@ contract User {
 
     mapping(address => UserStats) public userStats;
 
+    // Update user's bet details
     function updateBetStats(address user, uint256 amount) external {
         userStats[user].numberOfBets++;
         userStats[user].totalAmountBet += amount;
-        userStats[user].score = calculateScore(user);
+        updateScore(user);
     }
 
+    // Update user's win details
     function updateWinStats(address user) external {
         userStats[user].totalWins++;
-        userStats[user].score = calculateScore(user);
+        updateScore(user);
     }
 
+    // Update user's loss details
     function updateLossStats(address user) external {
         userStats[user].totalLosses++;
-        userStats[user].score = calculateScore(user);
+        updateScore(user);
     }
 
+    // Get user's statistics
     function getUserStats(address user) external view returns (UserStats memory) {
         return userStats[user];
     }
 
-    function calculateScore(address user) public view returns (uint256) {
-        UserStats memory stats = userStats[user];
+    // Get user's score
+    function getUserScore(address user) external view returns (uint256) {
+        return userStats[user].score;
+    }
+
+    // Internal function to update the user's score
+    function updateScore(address user) internal {
+        UserStats storage stats = userStats[user];
         
-        // Avoid division by zero
-        if (stats.numberOfBets == 0) return 0;
+        if (stats.numberOfBets == 0) {
+            stats.score = 0;
+            return;
+        }
         
-        // Calculate win ratio (0-100)
         uint256 winRatio = (stats.totalWins * 100) / stats.numberOfBets;
-        
-        // Calculate average bet amount (in wei)
         uint256 avgBetAmount = stats.totalAmountBet / stats.numberOfBets;
         
-        // Score components
-        uint256 winRatioScore = winRatio * 10;  // 0-1000 points
-        uint256 betFrequencyScore = stats.numberOfBets * 5;  // 5 points per bet
-        uint256 betAmountScore = (avgBetAmount / 1e16) * 2;  // 2 points per 0.01 ETH average bet
+        uint256 winRatioScore = winRatio * 10;
+        uint256 betFrequencyScore = stats.numberOfBets * 5;
+        uint256 betAmountScore = (avgBetAmount / 1e16) * 2;
         
-        // Combine scores with different weights
-        uint256 totalScore = (winRatioScore * 60 + betFrequencyScore * 30 + betAmountScore * 10) / 100;
-        
-        return totalScore;
+        stats.score = (winRatioScore * 60 + betFrequencyScore * 30 + betAmountScore * 10) / 100;
     }
 }
