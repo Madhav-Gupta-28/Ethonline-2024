@@ -14,8 +14,12 @@ contract User {
 
     // Update user's bet details
     function updateBetStats(address user, uint256 amount) external {
-        userStats[user].numberOfBets++;
-        userStats[user].totalAmountBet += amount;
+        UserStats storage stats = userStats[user];
+        if (stats.numberOfBets == 0) {
+            stats.score = 25; // Base score for new users
+        }
+        stats.numberOfBets++;
+        stats.totalAmountBet += amount;
         updateScore(user);
     }
 
@@ -46,17 +50,29 @@ contract User {
         UserStats storage stats = userStats[user];
         
         if (stats.numberOfBets == 0) {
-            stats.score = 0;
+            stats.score = 25;
             return;
         }
         
         uint256 winRatio = (stats.totalWins * 100) / stats.numberOfBets;
         uint256 avgBetAmount = stats.totalAmountBet / stats.numberOfBets;
         
-        uint256 winRatioScore = winRatio * 10;
-        uint256 betFrequencyScore = stats.numberOfBets * 5;
-        uint256 betAmountScore = (avgBetAmount / 1e16) * 2;
+        // Calculate score components
+        uint256 winRatioScore = (winRatio * 50) / 100; // 0-50 points based on win ratio
+        uint256 betFrequencyScore = (stats.numberOfBets > 100) ? 25 : (stats.numberOfBets * 25) / 100; // 0-25 points based on bet frequency
+        uint256 betAmountScore = (avgBetAmount > 1 ether) ? 25 : (avgBetAmount * 25) / 1 ether; // 0-25 points based on average bet amount
         
-        stats.score = (winRatioScore * 60 + betFrequencyScore * 30 + betAmountScore * 10) / 100;
+        // Combine scores
+        uint256 rawScore = winRatioScore + betFrequencyScore + betAmountScore;
+        
+        // Apply smoothing to prevent large swings
+        if (rawScore > stats.score) {
+            stats.score = stats.score + ((rawScore - stats.score) / 10);
+        } else {
+            stats.score = stats.score - ((stats.score - rawScore) / 10);
+        }
+        
+        // Ensure score stays within 0-100 range
+        stats.score = (stats.score > 100) ? 100 : stats.score;
     }
 }
