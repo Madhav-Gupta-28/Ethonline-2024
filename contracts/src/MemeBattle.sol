@@ -3,9 +3,14 @@ pragma solidity ^0.8.0;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "lib/sign-protocol-evm/src/interfaces/ISPHook.sol";
+import "./User.sol";
 
 // MemeBattle Contract with integrated Schema Hooks
 contract MemeBattle is ISPHook {
+
+    //  Initialzing user Contract
+    User public userContract;
+
     struct Staker {
         uint256 amount;  // Amount staked by the user
         bool hasStaked;  // Whether the user has staked or not
@@ -25,10 +30,11 @@ contract MemeBattle is ISPHook {
     event RewardDistributed(address indexed user, address indexed memeToken, uint256 reward);
     event MessageSent(address indexed user, string message);
 
-    constructor(string[] memory _memeNames, address[] memory _memeTokenAddresses, address _creator) {
+    constructor(string[] memory _memeNames, address[] memory _memeTokenAddresses, address _creator , address _userContractAddress) {
         require(_memeNames.length == _memeTokenAddresses.length, "Meme names and tokens length mismatch");
         memeNames = _memeNames;
         memeTokenAddresses = _memeTokenAddresses;
+        userContract = User(_userContractAddress)
         creator = _creator;
         battleEnded = false;
     }
@@ -42,6 +48,10 @@ contract MemeBattle is ISPHook {
     ) external payable override {
         require(!battleEnded, "Battle has ended");
         require(msg.value > 0, "Amount must be greater than 0");
+
+        // Fetch the user's current score before updating
+        uint256 userScoreBefore = userContract.getUserScore(attester);
+
 
         (address memeToken, uint256 amount) = abi.decode(extraData, (address, uint256));
         require(validMemeToken(memeToken), "Invalid meme token");
