@@ -1,0 +1,3 @@
+[submodule "contracts/lib/sign-protocol-evm"]
+	path = contracts/lib/sign-protocol-evm
+	url = https://github.com/EthSign/sign-protocol-evm

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "@ethsign/sign-protocol-evm/src/interfaces/ISPHook.sol";
+import "lib/sign-protocol-evm/src/interfaces/ISPHook.sol";
 
 // MemeBattle Contract with integrated Schema Hooks
 contract MemeBattle is ISPHook {
