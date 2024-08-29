@@ -2,8 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-// MemeBattle Contract
-contract MemeBattle {
+import "@ethsign/sign-protocol-evm/src/interfaces/ISPHook.sol";
+
+// MemeBattle Contract with integrated Schema Hooks
+contract MemeBattle is ISPHook {
     struct Staker {
         uint256 amount;  // Amount staked by the user
         bool hasStaked;  // Whether the user has staked or not
@@ -31,20 +33,77 @@ contract MemeBattle {
         battleEnded = false;
     }
 
-    // Stake tokens on a meme
-    function stake(address memeToken, uint256 amount) external {
+    // Schema Hook: Called when an attestation is received
+    function didReceiveAttestation(
+        address attester,
+        uint64 schemaId,
+        uint64 attestationId,
+        bytes calldata extraData
+    ) external payable override {
         require(!battleEnded, "Battle has ended");
+        require(msg.value > 0, "Amount must be greater than 0");
+
+        (address memeToken, uint256 amount) = abi.decode(extraData, (address, uint256));
         require(validMemeToken(memeToken), "Invalid meme token");
-        require(amount > 0, "Amount must be greater than 0");
 
-        ERC20(memeToken).transferFrom(msg.sender, address(this), amount);
+        // Handle the payment
+        require(msg.value >= amount, "Insufficient payment");
 
-        Staker storage staker = stakers[memeToken][msg.sender];
+        // Update staking information
+        Staker storage staker = stakers[memeToken][attester];
         staker.amount += amount;
         staker.hasStaked = true;
         totalStakedPerMeme[memeToken] += amount;
 
-        emit Staked(msg.sender, memeToken, amount);
+        emit Staked(attester, memeToken, amount);
+    }
+
+    // Schema Hook: Called when an attestation is received with ERC20 token
+    function didReceiveAttestation(
+        address attester,
+        uint64 schemaId,
+        uint64 attestationId,
+        IERC20 resolverFeeERC20Token,
+        uint256 resolverFeeERC20Amount,
+        bytes calldata extraData
+    ) external override {
+        require(!battleEnded, "Battle has ended");
+
+        (address memeToken, uint256 amount) = abi.decode(extraData, (address, uint256));
+        require(validMemeToken(memeToken), "Invalid meme token");
+
+        // Handle the ERC20 token payment
+        require(resolverFeeERC20Token.transferFrom(attester, address(this), resolverFeeERC20Amount), "ERC20 transfer failed");
+
+        // Update staking information
+        Staker storage staker = stakers[memeToken][attester];
+        staker.amount += amount;
+        staker.hasStaked = true;
+        totalStakedPerMeme[memeToken] += amount;
+
+        emit Staked(attester, memeToken, amount);
+    }
+
+    // Schema Hook: Called when a revocation is received
+    function didReceiveRevocation(
+        address attester,
+        uint64 schemaId,
+        uint64 attestationId,
+        bytes calldata extraData
+    ) external payable override {
+        // what should we do?
+    }
+
+    // Schema Hook: Called when a revocation is received with ERC20 token
+    function didReceiveRevocation(
+        address attester,
+        uint64 schemaId,
+        uint64 attestationId,
+        IERC20 resolverFeeERC20Token,
+        uint256 resolverFeeERC20Amount,
+        bytes calldata extraData
+    ) external override {
+        // what to do here?
     }
 
     // Unstake tokens from a meme
@@ -54,7 +113,7 @@ contract MemeBattle {
 
         uint256 amount = stakers[memeToken][msg.sender].amount;
 
-        ERC20(memeToken).transfer(msg.sender, amount);
+        payable(msg.sender).transfer(amount);
 
         totalStakedPerMeme[memeToken] -= amount;
         delete stakers[memeToken][msg.sender];
@@ -99,17 +158,18 @@ contract MemeBattle {
                     if (stakers[memeTokenAddresses[i]][msg.sender].amount > 0) {
                         uint256 userStake = stakers[memeTokenAddresses[i]][msg.sender].amount;
                         uint256 reward = (userStake * rewardPool) / totalStakedPerMeme[winningMemeToken];
-                        ERC20(memeTokenAddresses[i]).transfer(msg.sender, reward);
+                        payable(msg.sender).transfer(reward);
                         emit RewardDistributed(msg.sender, memeTokenAddresses[i], reward);
                     }
                 }
             } else {
                 // Burn a portion of losing tokens and transfer the rest to the winning pool
-                uint256 burnAmount = (totalStakedPerMeme[memeTokenAddresses[i]] * 20) / 100;  // Burn 20%
+                uint256 burnAmount = (totalStakedPerMeme[memeTokenAddresses[i]] * 20) / 100;  // Burn 20% - is this okay?
                 uint256 transferAmount = totalStakedPerMeme[memeTokenAddresses[i]] - burnAmount;
 
-                ERC20(memeTokenAddresses[i]).transfer(address(0), burnAmount);  // Burn tokens
-                ERC20(memeTokenAddresses[i]).transfer(address(winningMemeToken), transferAmount);  // Transfer to winning pool
+                // For simplicity, we're just keeping the burned amount in the contract, isko change karenge acc to the need
+                payable(address(this)).transfer(burnAmount);
+                payable(address(winningMemeToken)).transfer(transferAmount);
             }
         }
     }
@@ -123,4 +183,7 @@ contract MemeBattle {
         }
         return false;
     }
+
+    // Function to receive Ether
+    receive() external payable {}
 }
