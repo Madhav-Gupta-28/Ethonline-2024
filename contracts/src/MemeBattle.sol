@@ -84,13 +84,41 @@ contract MemeBattle is ISPHook {
         }
     }
 
-    function didReceiveRevocation(
-        address revoker,
-        bytes32 schemaId,
-        bytes memory revocationData
-    ) external override {
+    
+        function didReceiveRevocation(
+        address attester,
+        uint64 schemaId,
+        uint64 attestationId,
+        bytes calldata extraData
+    ) external payable {
         // Implement revocation logic if needed
     }
+
+    function didReceiveAttestation(
+        address attester,
+        uint64, // schemaId
+        uint64, // attestationId
+        IERC20, // resolverFeeERC20Token
+        uint256, // resolverFeeERC20Amount
+        bytes calldata // extraData
+    ) external view {
+        // Logic here
+    }
+
+
+       function didReceiveRevocation(
+        address attester,
+        uint64, // schemaId
+        uint64, // attestationId
+        IERC20, // resolverFeeERC20Token
+        uint256, // resolverFeeERC20Amount
+        bytes calldata // extraData
+    ) external view {
+        // Logic here
+    }
+
+     
+
 
     function unstake(uint256 memeIndex) external {
         require(!battleEnded, "Battle has ended");
