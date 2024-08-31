@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState , useEffect } from 'react';
 import ChatroomWrapper from '../../../components/ChatroomWrapper';
 import { useParams } from 'next/navigation';
 import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton,} from '@chakra-ui/react';
 import { useDisclosure , Button , FormControl , FormLabel , Input } from '@chakra-ui/react';
+import {ethers } from "ethers";
 
 import {  SignProtocolClient,SpMode,  EvmChains,  delegateSignAttestation, delegateSignRevokeAttestation, delegateSignSchema,} from "@ethsign/sp-sdk";
 import { privateKeyToAccount } from "viem/accounts";
 const privateKey = `0x0e56dc56de5142b9f29bb8e448c0c6c332b352d7d17e8ac0bce8b25273c92896`; // private key
-
-import { useWallet } from '@/app/WalletContext';
 
 
 interface ChatroomPageProps{
@@ -18,9 +17,43 @@ interface ChatroomPageProps{
   hashtag: string;
 }
 
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 const ChatroomPage: React.FC<ChatroomPageProps> = ({name,hashtag}) => {
 
-  const { address } = useWallet();
+
+  const [account, setAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    connectWallet();
+  }, []);
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // Request account access`
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+
+        // Switch to Arbitrum Sepolia
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x66eee' }], // Chain ID for Arbitrum Sepolia
+        });
+      } catch (error) {
+        console.error('Error connecting to MetaMask', error);
+      }
+    } else {
+      console.log('Please install MetaMask!');
+    }
+  };
+
+
+
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const betInputRef = useRef<HTMLInputElement>(null);
@@ -31,40 +64,64 @@ const ChatroomPage: React.FC<ChatroomPageProps> = ({name,hashtag}) => {
   // Sign Protocol Clint 
   const client = new SignProtocolClient(SpMode.OnChain, {
     chain: EvmChains.arbitrumSepolia,
-    account: privateKeyToAccount(privateKey), // Optional if you are using an injected provider
+    // account: privateKeyToAccount(privateKey), // Optional if you are using an injected provider
   });
+
+  enum Action {
+    USER_BET = 0,
+    MEME_WIN = 1
+  }
   
 
   const bet = async() => {
-    const currentBetAmount = betInputRef.current?.value;
-    console.log(currentBetAmount);
-    console.log(privateKey);
-
-    if(!address) {
-      alert("Wallet not connected");
-      return
+    try {
+      const currentBetAmount = betInputRef.current?.value;
+      if (!currentBetAmount || !account) {
+        alert("Please enter a bet amount and connect your wallet");
+        return;
+      }
+  
+      const betAmountWei = ethers.parseEther(currentBetAmount);
+  
+      // Prepare the extra data
+      const extraData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint8', 'uint256', 'uint256'],
+        [Action.USER_BET, 1, betAmountWei]
+      );
+  
+      const createAttestationRes = await client.createAttestation(
+        {
+          schemaId: "0xc4",
+          data: { 
+            user: account, 
+            meme_id: "memeName_1", 
+            bet_amount: betAmountWei.toString(), // Convert BigInt to string
+            bet_timestamp: Math.floor(Date.now() / 1000) // Use seconds instead of milliseconds
+          },
+          indexingValue: `${account.toLowerCase()}_${roomId}`,
+        },
+        {
+          extraData: extraData,
+          getTxHash: (txHash) => {
+            console.log("Transaction hash:", txHash as `0x${string}`);
+          }
+        }
+      );
+  
+      console.log("Attestation created:", createAttestationRes);
+    } catch (error) {
+      console.error("Error creating attestation:", error);
+      alert("Failed to create attestation. Check console for details.");
     }
-
-    console.log(address)
-
-    // ***** Some Thoughts before doing the attestions Their is one way.. like we can do the tx first and then pash the tx hash in attestions
-    // *** We can use the schema hooks to do the attestion and receive payments from the user based on their score.
-
-
-    const createAttestationRes = await client.createAttestation({
-      schemaId: "0xbf",
-      data: { user_id: address , meme_id : "memeName_1" , stake_amount : currentBetAmount , bet_timestamp : Date.now() , schema_hook_data : "......................... "  },
-      indexingValue: `${address.toLowerCase()}_${roomId}`,
-    });
-
-    console.log(createAttestationRes);
   }
+
+  
 
   return (
     <>
         <ChatroomWrapper roomId={roomId} />
 
-        <Button onClick={onOpen}>Open Modal</Button>
+        <Button onClick={onOpen} colorScheme='green' >Bet</Button>
 
         <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />

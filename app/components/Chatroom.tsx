@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, serverTimestamp } from 'firebase/firestore';
-import { useWallet } from '../app/WalletContext';
+// import { useWallet } from '../app/WalletContext';
 
 interface Message {
   id: string;
@@ -15,10 +15,36 @@ interface Message {
 const Chatroom = ({ roomId }: { roomId: string }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const { address } = useWallet();
+  // const { address } = useWallet();
+
+  const [account, setAccount] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!address) return;
+    connectWallet();
+  }, []);
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // Request account access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+
+        // Switch to Arbitrum Sepolia
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x66eee' }], // Chain ID for Arbitrum Sepolia
+        });
+      } catch (error) {
+        console.error('Error connecting to MetaMask', error);
+      }
+    } else {
+      console.log('Please install MetaMask!');
+    }
+  };
+
+  useEffect(() => {
+    if (!account) return;
 
     console.log("Setting up Firestore listener for room:", roomId);
     const chatroomRef = doc(db, 'chatrooms', roomId);
@@ -37,11 +63,11 @@ const Chatroom = ({ roomId }: { roomId: string }) => {
     });
 
     return () => unsubscribe();
-  }, [roomId, address]);
+  }, [roomId, account]);
 
   const handleMessageSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!address || !newMessage.trim()) return;
+    if (!account || !newMessage.trim()) return;
 
     console.log("Sending message...");
     const chatroomRef = doc(db, 'chatrooms', roomId);
@@ -50,7 +76,7 @@ const Chatroom = ({ roomId }: { roomId: string }) => {
     try {
       const docRef = await addDoc(messagesRef, {
         content: newMessage,
-        sender: address,
+        sender: account,
         timestamp: serverTimestamp()
       });
       console.log("Message sent successfully with ID:", docRef.id);
@@ -60,14 +86,14 @@ const Chatroom = ({ roomId }: { roomId: string }) => {
     }
   };
 
-  if (!address) {
+  if (!account) {
     return <div>Please connect your wallet to access the chatroom.</div>;
   }
 
   return (
     <div className="p-4">
       <h1 className="text-2xl mb-4">Chatroom {roomId}</h1>
-      <p>Connected address: {address}</p>
+      <p>Connected address: {account}</p>
       <div className="mb-4 h-64 overflow-y-auto border border-gray-300 p-2">
         {messages.map((message) => (
           <div key={message.id} className="mb-2">

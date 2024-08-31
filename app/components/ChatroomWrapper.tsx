@@ -1,13 +1,39 @@
 "use client";
 
-import React from 'react';
+import React , {useState , useEffect} from 'react';
 import Chatroom from './Chatroom';
-import { useWallet } from '../app/WalletContext';
 
 const ChatroomWrapper = ({ roomId }: { roomId: string }) => {
-  const { address, connectWallet } = useWallet();
 
-  if (!address) {
+  const [account, setAccount] = useState<string | null>(null);
+
+  useEffect(() => {
+    connectWallet();
+  }, []);
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // Request account access`
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+
+        // Switch to Arbitrum Sepolia
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x66eee' }], // Chain ID for Arbitrum Sepolia
+        });
+      } catch (error) {
+        console.error('Error connecting to MetaMask', error);
+      }
+    } else {
+      console.log('Please install MetaMask!');
+    }
+  };
+
+
+
+  if (!account) {
     return (
       <div>
         <p>Please connect your wallet to access the chatroom.</p>

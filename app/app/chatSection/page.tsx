@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import WalletConnectButton from "../../components/WalletConnectButton";
-import { ThirdwebProvider } from "@thirdweb-dev/react";
+
 
 interface HashtagResult {
   hashtag: string;
@@ -47,10 +46,8 @@ const ChatSection: React.FC = () => {
   };
 
   return (
-    <ThirdwebProvider clientId="5101ab374c610f458813c8583fffa1da">
       <div className="p-4">
         <h1 className="text-2xl font-bold mb-4">Chat Section</h1>
-        <WalletConnectButton />
         <div className="flex gap-4 my-4">
           <Link href="/chatroom/1" className="w-64 h-64 bg-gray-500 flex items-center justify-center text-white">
             Chatroom 1
@@ -75,7 +72,6 @@ const ChatSection: React.FC = () => {
           </div>
         )}
       </div>
-    </ThirdwebProvider>
   );
 };
 
