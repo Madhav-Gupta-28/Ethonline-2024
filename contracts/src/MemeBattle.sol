@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/sign-protocol-evm/src/interfaces/ISPHook.sol";
 import "./User.sol";
 
@@ -19,42 +19,20 @@ contract MemeBattle is ISPHook {
     }
 
     string[] public memeNames;
-    address[] public memeTokenAddresses;
     address public creator;
-    mapping(address => mapping(address => Staker)) public stakers;
-    mapping(address => uint256) public totalStakedPerMeme;
-    mapping(address => address[]) public stakersPerMeme;
-    address public winningMemeToken;
+    mapping(uint256 => mapping(address => Staker)) public stakers;
+    mapping(uint256 => uint256) public totalStakedPerMeme;
+    mapping(uint256 => address[]) public stakersPerMeme;
+    uint256 public winningMemeIndex;
     bool public battleEnded;
 
-    event Staked(
-        address indexed user,
-        address indexed memeToken,
-        uint256 amount
-    );
-    event Unstaked(
-        address indexed user,
-        address indexed memeToken,
-        uint256 amount
-    );
-    event MemeBattleEnded(address indexed winningMemeToken);
-    event RewardDistributed(
-        address indexed user,
-        address indexed memeToken,
-        uint256 reward
-    );
-    event MessageSent(address indexed user, string message);
-    event UserScoreUpdated(
-        address user,
-        uint256 scoreBefore,
-        uint256 scoreAfter
-    );
+    event Staked(address indexed user, uint256 indexed memeIndex, uint256 amount);
+    event Unstaked(address indexed user, uint256 indexed memeIndex, uint256 amount);
+    event MemeBattleEnded(uint256 indexed winningMemeIndex);
+    event RewardDistributed(address indexed user, uint256 indexed memeIndex, uint256 reward);
+    event UserScoreUpdated(address user, uint256 scoreBefore, uint256 scoreAfter);
 
-    constructor(
-        string[] memory _memeNames,
-        address _creator,
-        address _userContractAddress
-    ) {
+    constructor(string[] memory _memeNames, address _creator, address _userContractAddress) {
         memeNames = _memeNames;
         creator = _creator;
         userContract = User(_userContractAddress);
@@ -66,257 +44,115 @@ contract MemeBattle is ISPHook {
         uint64 schemaId,
         uint64 attestationId,
         bytes calldata extraData
-    ) external payable {
+    ) external payable override {
         require(!battleEnded, "Battle has ended");
 
-        (Action action, address memeToken, uint256 amount) = abi.decode(
-            extraData,
-            (Action, address, uint256)
-        );
-        require(validMemeToken(memeToken), "Invalid meme token");
+        (Action action, uint256 memeIndex, uint256 amount) = abi.decode(extraData, (Action, uint256, uint256));
+        require(memeIndex < memeNames.length, "Invalid meme index");
 
         if (action == Action.USER_BET) {
             require(msg.value >= amount, "Insufficient payment");
+            require(amount > 0, "Bet amount must be greater than 0");
 
-            Staker storage staker = stakers[memeToken][attester];
+            Staker storage staker = stakers[memeIndex][attester];
             staker.amount += amount;
             staker.hasStaked = true;
-            totalStakedPerMeme[memeToken] += amount;
-            stakersPerMeme[memeToken].push(attester);
+            totalStakedPerMeme[memeIndex] += amount;
+            stakersPerMeme[memeIndex].push(attester);
 
-            emit Staked(attester, memeToken, amount);
+            emit Staked(attester, memeIndex, amount);
 
-            // Update user stats
             uint256 userScoreBefore = userContract.getUserScore(attester);
             userContract.updateBetStats(attester, amount);
             uint256 userScoreAfter = userContract.getUserScore(attester);
 
             emit UserScoreUpdated(attester, userScoreBefore, userScoreAfter);
+
+            if (msg.value > amount) {
+                payable(attester).transfer(msg.value - amount);
+            }
         } else if (action == Action.MEME_WIN) {
-            require(
-                attester == creator,
-                "Only the creator can declare a winner"
-            );
+            require(attester == creator, "Only the creator can declare a winner");
             require(!battleEnded, "Battle already ended");
 
-            winningMemeToken = memeToken;
+            winningMemeIndex = memeIndex;
             battleEnded = true;
 
-            emit MemeBattleEnded(winningMemeToken);
+            emit MemeBattleEnded(winningMemeIndex);
 
-            // Calculate total stakes
-            uint256 totalStake = 0;
-            for (uint256 i = 0; i < memeTokenAddresses.length; i++) {
-                totalStake += totalStakedPerMeme[memeTokenAddresses[i]];
-            }
-
-            uint256 winningStake = totalStakedPerMeme[winningMemeToken];
-            require(winningStake > 0, "No stakes on winning meme");
-
-            // Distribute rewards to winners
-            for (uint256 i = 0; i < memeTokenAddresses.length; i++) {
-                address currentMemeToken = memeTokenAddresses[i];
-                bool isWinningMeme = (currentMemeToken == winningMemeToken);
-
-                for (
-                    uint256 j = 0;
-                    j < stakersPerMeme[currentMemeToken].length;
-                    j++
-                ) {
-                    address staker = stakersPerMeme[currentMemeToken][j];
-                    if (stakers[currentMemeToken][staker].amount > 0) {
-                        uint256 userStake = stakers[currentMemeToken][staker]
-                            .amount;
-                        uint256 userScoreBefore = userContract.getUserScore(
-                            staker
-                        );
-
-                        if (isWinningMeme) {
-                            // Calculate reward proportional to stake
-                            uint256 reward = (userStake * totalStake) /
-                                winningStake;
-                            payable(staker).transfer(reward);
-                            emit RewardDistributed(
-                                staker,
-                                currentMemeToken,
-                                reward
-                            );
-                            userContract.updateWinStats(staker);
-                        } else {
-                            userContract.updateLossStats(staker);
-                        }
-
-                        uint256 userScoreAfter = userContract.getUserScore(
-                            staker
-                        );
-                        emit UserScoreUpdated(
-                            staker,
-                            userScoreBefore,
-                            userScoreAfter
-                        );
-
-                        // Clear staker's data
-                        delete stakers[currentMemeToken][staker];
-                    }
-                }
-
-                // Reset total staked amount for this meme
-                totalStakedPerMeme[currentMemeToken] = 0;
-            }
-
-            // Ensure all funds have been distributed
-            require(address(this).balance == 0, "Not all funds distributed");
+            distributeRewards();
         }
     }
 
     function didReceiveRevocation(
-        address attester,
-        uint64 schemaId,
-        uint64 attestationId,
-        bytes calldata extraData
-    ) external payable {
+        address revoker,
+        bytes32 schemaId,
+        bytes memory revocationData
+    ) external override {
         // Implement revocation logic if needed
     }
 
-    function didReceiveAttestation(
-        address attester,
-        uint64, // schemaId
-        uint64, // attestationId
-        IERC20, // resolverFeeERC20Token
-        uint256, // resolverFeeERC20Amount
-        bytes calldata // extraData
-    ) external view {
-        // Logic here
-    }
+    function unstake(uint256 memeIndex) external {
+        require(!battleEnded, "Battle has ended");
+        require(stakers[memeIndex][msg.sender].hasStaked, "No staked tokens found");
+        require(stakers[memeIndex][msg.sender].amount > 0, "No staked tokens to unstake");
 
-    function didReceiveRevocation(
-        address attester,
-        uint64, // schemaId
-        uint64, // attestationId
-        IERC20, // resolverFeeERC20Token
-        uint256, // resolverFeeERC20Amount
-        bytes calldata // extraData
-    ) external view {
-        // Logic here
-    }
-
-    function unstake(address memeToken) external {
-        require(
-            stakers[memeToken][msg.sender].hasStaked,
-            "No staked tokens found"
-        );
-        require(
-            stakers[memeToken][msg.sender].amount > 0,
-            "No staked tokens to unstake"
-        );
-
-        uint256 amount = stakers[memeToken][msg.sender].amount;
+        uint256 amount = stakers[memeIndex][msg.sender].amount;
         payable(msg.sender).transfer(amount);
 
-        totalStakedPerMeme[memeToken] -= amount;
-        delete stakers[memeToken][msg.sender];
+        totalStakedPerMeme[memeIndex] -= amount;
+        delete stakers[memeIndex][msg.sender];
 
-        emit Unstaked(msg.sender, memeToken, amount);
+        emit Unstaked(msg.sender, memeIndex, amount);
 
-        // Update user stats for unstaking
         userContract.updateBetStats(msg.sender, 0);
     }
 
-    function endBattle(address _winningMemeToken) external {
-        require(msg.sender == creator, "Only the creator can end the battle");
-        require(
-            validMemeToken(_winningMemeToken),
-            "Invalid winning meme token"
-        );
-        require(!battleEnded, "Battle already ended");
-
-        winningMemeToken = _winningMemeToken;
-        battleEnded = true;
-
-        emit MemeBattleEnded(_winningMemeToken);
-
-        distributeRewards();
-    }
-
     function distributeRewards() internal {
-        uint256 totalLosingStake = 0;
-
-        for (uint256 i = 0; i < memeTokenAddresses.length; i++) {
-            if (memeTokenAddresses[i] != winningMemeToken) {
-                totalLosingStake += totalStakedPerMeme[memeTokenAddresses[i]];
-            }
+        uint256 totalStake = 0;
+        for (uint256 i = 0; i < memeNames.length; i++) {
+            totalStake += totalStakedPerMeme[i];
         }
 
-        uint256 rewardPool = totalStakedPerMeme[winningMemeToken] +
-            totalLosingStake;
+        uint256 winningStake = totalStakedPerMeme[winningMemeIndex];
+        require(winningStake > 0, "No stakes on winning meme");
 
-        for (uint256 i = 0; i < memeTokenAddresses.length; i++) {
-            if (memeTokenAddresses[i] == winningMemeToken) {
-                for (
-                    uint256 j = 0;
-                    j < stakersPerMeme[memeTokenAddresses[i]].length;
-                    j++
-                ) {
-                    address staker = stakersPerMeme[memeTokenAddresses[i]][j];
-                    if (stakers[memeTokenAddresses[i]][staker].amount > 0) {
-                        uint256 userStake = stakers[memeTokenAddresses[i]][
-                            staker
-                        ].amount;
-                        uint256 reward = (userStake * rewardPool) /
-                            totalStakedPerMeme[winningMemeToken];
+        for (uint256 i = 0; i < memeNames.length; i++) {
+            bool isWinningMeme = (i == winningMemeIndex);
+
+            for (uint256 j = 0; j < stakersPerMeme[i].length; j++) {
+                address staker = stakersPerMeme[i][j];
+                if (stakers[i][staker].amount > 0) {
+                    uint256 userStake = stakers[i][staker].amount;
+                    uint256 userScoreBefore = userContract.getUserScore(staker);
+
+                    if (isWinningMeme) {
+                        uint256 reward = (userStake * totalStake) / winningStake;
                         payable(staker).transfer(reward);
-                        emit RewardDistributed(
-                            staker,
-                            memeTokenAddresses[i],
-                            reward
-                        );
-
-                        // Update user win stats
+                        emit RewardDistributed(staker, i, reward);
                         userContract.updateWinStats(staker);
-                    }
-                }
-            } else {
-                for (
-                    uint256 j = 0;
-                    j < stakersPerMeme[memeTokenAddresses[i]].length;
-                    j++
-                ) {
-                    address staker = stakersPerMeme[memeTokenAddresses[i]][j];
-                    if (stakers[memeTokenAddresses[i]][staker].amount > 0) {
-                        // Update user loss stats
+                    } else {
                         userContract.updateLossStats(staker);
                     }
+
+                    uint256 userScoreAfter = userContract.getUserScore(staker);
+                    emit UserScoreUpdated(staker, userScoreBefore, userScoreAfter);
+
+                    delete stakers[i][staker];
                 }
-
-                // Handle losing tokens (e.g., burn or redistribute)
-                uint256 burnAmount = (totalStakedPerMeme[
-                    memeTokenAddresses[i]
-                ] * 20) / 100;
-                uint256 transferAmount = totalStakedPerMeme[
-                    memeTokenAddresses[i]
-                ] - burnAmount;
-                payable(address(this)).transfer(burnAmount);
-                payable(address(winningMemeToken)).transfer(transferAmount);
             }
-        }
-    }
 
-    function validMemeToken(address memeToken) internal view returns (bool) {
-        for (uint256 i = 0; i < memeTokenAddresses.length; i++) {
-            if (memeTokenAddresses[i] == memeToken) {
-                return true;
-            }
+            totalStakedPerMeme[i] = 0;
         }
-        return false;
+
+        require(address(this).balance == 0, "Not all funds distributed");
     }
 
     function getUserScore(address user) external view returns (uint256) {
         return userContract.getUserScore(user);
     }
 
-    function getUserStats(
-        address user
-    ) external view returns (User.UserStats memory) {
+    function getUserStats(address user) external view returns (User.UserStats memory) {
         return userContract.getUserStats(user);
     }
 
