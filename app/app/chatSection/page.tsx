@@ -1,77 +1,57 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { db } from '../../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
-
-interface HashtagResult {
-  hashtag: string;
-  count: number;
+interface MemeBattle {
+  id: string;
+  name: string;
+  description: string;
+  memes: Array<{ name: string; image: string; hashtag: string }>;
 }
 
 const ChatSection: React.FC = () => {
-  const [winnerHashtag, setWinnerHashtag] = useState<HashtagResult | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [memeBattles, setMemeBattles] = useState<MemeBattle[]>([]);
 
-  const fetchHashtagCount = async (hashtag: string): Promise<HashtagResult> => {
-    const url = `https://instagram-scraper-20231.p.rapidapi.com/searchtag/${encodeURIComponent(hashtag)}`;
-    const options: RequestInit = {
-      method: 'GET',
-      headers: {
-        'X-RapidAPI-Key': 'e1c5c7828amshed306ef3489e5e3p1498ccjsn7f91b9ceee32',
-        'X-RapidAPI-Host': 'instagram-scraper-20231.p.rapidapi.com'
-      }
-    };
+  useEffect(() => {
+    fetchMemeBattles();
+  }, []);
 
+  const fetchMemeBattles = async () => {
     try {
-      const response = await fetch(url, options);
-      const result = await response.json();
-      if (result.status === 'success' && result.data && result.data.length > 0) {
-        return { hashtag, count: result.data[0].media_count };
-      }
-      return { hashtag, count: 0 };
+      const battlesCollection = collection(db, 'memeBattles');
+      const battleSnapshot = await getDocs(battlesCollection);
+      const battleList = battleSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as MemeBattle));
+      setMemeBattles(battleList);
+      console.log('Fetched meme battles:', battleList);
     } catch (error) {
-      console.error(`Error fetching count for #${hashtag}:`, error);
-      return { hashtag, count: 0 };
+      console.error('Error fetching meme battles:', error);
     }
   };
 
-  const findWinnerHashtag = async (): Promise<void> => {
-    setIsLoading(true);
-    const hashtags: string[] = ['cattmirga', 'cattniara', 'cattpichii', 'catttikkii'];
-    const results = await Promise.all(hashtags.map(fetchHashtagCount));
-    const winner = results.reduce((max, current) => (current.count > max.count ? current : max));
-    setWinnerHashtag(winner);
-    setIsLoading(false);
-  };
-
   return (
-      <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">Chat Section</h1>
-        <div className="flex gap-4 my-4">
-          <Link href="/chatroom/1" className="w-64 h-64 bg-gray-500 flex items-center justify-center text-white">
-            Chatroom 1
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Meme Battles</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {memeBattles.map((battle) => (
+          <Link href={`/chatroom/${battle.id}`} key={battle.id}>
+            <div className="bg-gray-100 p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+              <h2 className="text-xl font-semibold mb-1">{battle.name}</h2>
+              <p className="text-sm mb-2">{battle.description}</p>
+              <p className="text-xs text-gray-600">{battle.memes.length} memes in this battle</p>
+            </div>
           </Link>
-          <Link href="/chatroom/2" className="w-64 h-64 bg-gray-500 flex items-center justify-center text-white">
-            Chatroom 2
-          </Link>
-          <Link href="/chatroom/3" className="w-64 h-64 bg-gray-500 flex items-center justify-center text-white">
-            Chatroom 3
-          </Link>
-        </div>
-        <button
-          onClick={findWinnerHashtag}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Calculating...' : 'Show Winner Hashtag'}
-        </button>
-        {winnerHashtag && (
-          <div className="mt-4 p-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
-            <strong>Winner Hashtag:</strong> #{winnerHashtag.hashtag} with {winnerHashtag.count} posts
-          </div>
-        )}
+        ))}
       </div>
+      <Link href="/addMemeBattle" className="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded">
+        Add New Meme Battle
+      </Link>
+    </div>
   );
 };
 
