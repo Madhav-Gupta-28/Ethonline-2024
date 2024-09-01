@@ -8,7 +8,7 @@ import { useDisclosure , Button , FormControl , FormLabel , Input } from '@chakr
 import {ethers } from "ethers";
 
 import {  SignProtocolClient,SpMode,  EvmChains,  delegateSignAttestation, delegateSignRevokeAttestation, delegateSignSchema,} from "@ethsign/sp-sdk";
-import { privateKeyToAccount } from "viem/accounts";
+import { Account, privateKeyToAccount } from "viem/accounts";
 const privateKey = `0x0e56dc56de5142b9f29bb8e448c0c6c332b352d7d17e8ac0bce8b25273c92896`; // private key
 
 
@@ -86,25 +86,29 @@ const ChatroomPage: React.FC<ChatroomPageProps> = ({name,hashtag}) => {
       // Prepare the extra data
       const extraData = ethers.AbiCoder.defaultAbiCoder().encode(
         ['uint8', 'uint256', 'uint256'],
-        [Action.USER_BET, 1, betAmountWei]
+        [Action.USER_BET, "1", betAmountWei]
       );
+
+
+      const UserAddress = account as `0x${string}`
   
       const createAttestationRes = await client.createAttestation(
         {
           schemaId: "0xc4",
           data: { 
-            user: account, 
+            user: UserAddress, 
             meme_id: "memeName_1", 
-            bet_amount: betAmountWei.toString(), // Convert BigInt to string
+            bet_amount: betAmountWei, // Convert BigInt to string
             bet_timestamp: Math.floor(Date.now() / 1000) // Use seconds instead of milliseconds
           },
           indexingValue: `${account.toLowerCase()}_${roomId}`,
+          
         },
         {
           extraData: extraData,
           getTxHash: (txHash) => {
             console.log("Transaction hash:", txHash as `0x${string}`);
-          }
+          },
         }
       );
   
