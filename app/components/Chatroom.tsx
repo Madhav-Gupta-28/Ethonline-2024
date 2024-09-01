@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, serverTimestamp } from 'firebase/firestore';
-// import { useWallet } from '../app/WalletContext';
 
 interface Message {
   id: string;
@@ -15,7 +14,6 @@ interface Message {
 const Chatroom = ({ roomId }: { roomId: string }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  // const { address } = useWallet();
 
   const [account, setAccount] = useState<string | null>(null);
 

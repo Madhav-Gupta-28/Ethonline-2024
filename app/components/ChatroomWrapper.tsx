@@ -3,6 +3,15 @@
 import React , {useState , useEffect} from 'react';
 import Chatroom from './Chatroom';
 
+
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
+
+
 const ChatroomWrapper = ({ roomId }: { roomId: string }) => {
 
   const [account, setAccount] = useState<string | null>(null);
