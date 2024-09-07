@@ -90,7 +90,7 @@ const AttestationTable: React.FC = () => {
 
   return (
     <div className="bg-gray-900 bg-opacity-60 rounded-3xl shadow-2xl p-8 backdrop-blur-lg">
-      <h2 className="text-3xl font-bold text-green-400 mb-6">Your Attestations</h2>
+      {/* <h2 className="text-3xl font-bold text-[#5A08C0] mb-6">Your Attestations</h2> */}
       {attestations.length === 0 ? (
         <p className="text-gray-400 text-center py-8">No attestations found. Start betting to see your activity!</p>
       ) : (
@@ -98,10 +98,10 @@ const AttestationTable: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-800 bg-opacity-50">
-                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Meme Id</th>
-                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Bet Amount (ETH)</th>
-                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Bet Timestamp</th>
-                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Action</th>
+                <th className="p-4 text-sm font-semibold text-[#410DEF] uppercase tracking-wider">Meme Id</th>
+                <th className="p-4 text-sm font-semibold text-[#410DEF] uppercase tracking-wider">Bet Amount (ETH)</th>
+                <th className="p-4 text-sm font-semibold text-[#410DEF] uppercase tracking-wider">Bet Timestamp</th>
+                <th className="p-4 text-sm font-semibold text-[#410DEF] uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
@@ -112,7 +112,7 @@ const AttestationTable: React.FC = () => {
                   <td className="p-4 text-gray-300">{decodedData[index]?.bet_timestamp}</td>
                   <td className="p-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      decodedData[index]?.action === 'USER_BET' ? 'bg-blue-500 text-blue-100' : 'bg-green-500 text-green-100'
+                      decodedData[index]?.action === 'USER_BET' ? 'bg-[#5A08C0] text-blue-100' : 'bg-[#5A08C0] text-green-100'
                     }`}>
                       {decodedData[index]?.action}
                     </span>

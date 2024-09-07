@@ -308,7 +308,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       <div className="mb-6 h-64 overflow-y-auto border border-[#6B0CDF] p-4 bg-[#18191A] rounded-lg shadow-lg">
         {messages.map((message) => (
           <div key={message.id} className="mb-4 flex items-start gap-2">
-            <div className="w-10 h-10 bg-gray-700 rounded-full flex-shrink-0" />
+            <div className="w-10 h-10 bg-purple-700 rounded-full flex-shrink-0" />
             <div className="flex flex-col">
               <span className="font-bold text-[#6B0CDF]">
                 {message.sender.slice(0, 6)}...{message.sender.slice(-4)}
@@ -323,7 +323,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          className="flex-grow border bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-400 border-[#6B0CDF]"
+          className="flex-grow border bg-transparent p-3 rounded-lg text-white outline-none border-[#6B0CDF]"
           placeholder="Type a message..."
         />
         <button

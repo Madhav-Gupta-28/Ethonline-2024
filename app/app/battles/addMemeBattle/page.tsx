@@ -62,7 +62,7 @@ const AddMemeBattle: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#080B0F] p-6">
       <div className="w-full max-w-2xl bg-gray-900 bg-opacity-80 p-8 rounded-3xl shadow-xl">
-        <h1 className="text-2xl font-extrabold text-white mb-8 text-center">Add New Meme Battle</h1>
+        <h1 className="text-2xl font-extrabold text-[#6B0CDF] mb-8 text-center">Add New Meme Battle</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="battleName" className="block mb-2 text-lg font-semibold text-gray-200">Battle Name:</label>
