@@ -239,7 +239,18 @@ export const getUserProfile = async (userId: string) => {
 
 export const getUserBattles = async (userId: string) => {
   const battlesRef = collection(db, 'battles');
-  const q = query(battlesRef, where(`memes.*.bets.${userId}`, '>', 0));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const querySnapshot = await getDocs(battlesRef);
+  const userBattles = [];
+
+  for (const doc of querySnapshot.docs) {
+    const battleData = doc.data();
+    for (const meme of Object.values(battleData.memes) as Array<{ bets?: Record<string, unknown> }>) {
+      if (meme.bets && userId in meme.bets) {
+        userBattles.push({ id: doc.id, ...battleData });
+        break;
+      }
+    }
+  }
+
+  return userBattles;
 };
