@@ -215,14 +215,14 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           data: {
             user: UserAddress,
             // meme_id: roomIdBigInt,
-            meme_id: BigInt(3),
+            meme_id : BigInt(2),
             bet_amount: betAmountWei,
             bet_timestamp: Math.floor(Date.now() / 1000),
             result: false,
             win_amount: BigInt(0),
             action: "USER_BET",
           },
-          indexingValue: `${account.toLowerCase()}_${roomIdBigInt}`,
+          indexingValue: `${account.toLowerCase()}`,
         },
         {
           resolverFeesETH: betAmountWei,
@@ -236,16 +236,13 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
         setAttestationCreated(true);
 
         // Add user bet
-        await addUserBet(
-          UserAddress,
-          battleId,
-          memeIndex.toString(),
-          Number(currentBetAmount)
-        );
-
-        console.log(
-          `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
-        );
+        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount) ,{
+          name: String(3) || '',
+          image: meme?.image || '',
+          hashtag: meme?.hashtag || ''
+        });
+  
+        console.log(`Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`);
         setBetAmount("");
       } else {
         alert("Creation of Attestation Failed");
