@@ -196,16 +196,25 @@ export const addUserBet = async (userId: string, battleId: string, memeId: strin
     await setDoc(userRef, {
       battlesParticipated: 1,
       wins: 0,
-      totalStaked: amount
+      totalStaked: amount,
+      bets: [{battleId, memeId, amount}]
     });
   } else {
     await updateDoc(userRef, {
       battlesParticipated: increment(1),
-      totalStaked: increment(amount)
+      totalStaked: increment(amount),
+      bets: arrayUnion({battleId, memeId, amount})
     });
   }
 
   const battleRef = doc(db, 'battles', battleId);
+  const battleDoc = await getDoc(battleRef);
+
+  if (!battleDoc.exists()) {
+    console.error(`Battle document ${battleId} does not exist`);
+    return;
+  }
+
   await updateDoc(battleRef, {
     [`memes.${memeId}.bets.${userId}`]: amount
   });
@@ -238,19 +247,24 @@ export const getUserProfile = async (userId: string) => {
 };
 
 export const getUserBattles = async (userId: string) => {
-  const battlesRef = collection(db, 'battles');
-  const querySnapshot = await getDocs(battlesRef);
-  const userBattles = [];
-
-  for (const doc of querySnapshot.docs) {
-    const battleData = doc.data();
-    for (const meme of Object.values(battleData.memes) as Array<{ bets?: Record<string, unknown> }>) {
-      if (meme.bets && userId in meme.bets) {
-        userBattles.push({ id: doc.id, ...battleData });
-        break;
-      }
-    }
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  
+  if (!userDoc.exists()) {
+    return [];
   }
 
-  return userBattles;
+  const userData = userDoc.data();
+  const userBets = userData.bets || [];
+
+  const battles = await Promise.all(userBets.map(async (bet) => {
+    const battleRef = doc(db, 'battles', bet.battleId);
+    const battleDoc = await getDoc(battleRef);
+    if (battleDoc.exists()) {
+      return { id: battleDoc.id, ...battleDoc.data() };
+    }
+    return null;
+  }));
+
+  return battles.filter(battle => battle !== null);
 };

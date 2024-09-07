@@ -77,11 +77,15 @@ const UserProfile = () => {
         <p className="text-white mb-8">Loading user profile...</p>
       )}
       <h2 className="text-3xl font-bold text-white mb-6">Your Battles</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {battles.map((battle) => (
-          <UserBattleCard key={battle.id} battle={battle} onClaimSuccess={handleClaimSuccess} />
-        ))}
-      </div>
+      {battles.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {battles.map((battle) => (
+            <UserBattleCard key={battle.id} battle={battle} onClaimSuccess={handleClaimSuccess} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-white">You haven't participated in any battles yet.</p>
+      )}
     </div>
   );
 };
