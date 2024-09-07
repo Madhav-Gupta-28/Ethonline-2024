@@ -152,11 +152,6 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   };
 
   const handlePlaceBet = async () => {
-    // if (!isBettingOpen) {
-    //   alert("Betting is closed for this battle.");
-    //   return;
-    // }
- 
     const currentBetAmount = betInputRef.current?.value;
     console.log(currentBetAmount);
 
