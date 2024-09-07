@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getUserBattles, getUserProfile } from '../../firebase';
 import UserBattleCard from '../../components/UserBattleCard';
+import { IndexService } from '@ethsign/sp-sdk';
+import AttestationTable from './AttestationTable';
 
 interface Battle {
   id: string;
@@ -12,7 +14,12 @@ interface Battle {
   winningMeme: string;
   claimed: boolean;
   memes: any[]; // Replace 'any[]' with a more specific type if possible
-  userBetMemeId: string; // Add this line
+  userBetMemeId: string;
+  memeInfo: {
+    name: string;
+    image: string;
+    hashtag: string;
+  };
 }
 
 const UserProfile = () => {
@@ -43,13 +50,30 @@ const UserProfile = () => {
       if (address) {
         const userBattles = await getUserBattles(address);
         setBattles(userBattles as Battle[]);
+        console.log("User " , battles)
         const profile = await getUserProfile(address);
         setUserProfile(profile);
         setProfileFetched(true);
       }
     };
 
+
+    const fetchAttestation = async() => {
+        const indexService = new IndexService("testnet");
+        const res = await indexService.queryAttestationList({
+            id: "",
+            schemaId: "onchain_evm_421614_0xda",
+            attester: "",
+            page: 1,
+            mode: "onchain",
+            indexingValue: ""
+          });
+
+        console.log(res?.rows)
+    }
+
     fetchData();
+    fetchAttestation();
   }, [address]);
 
   const handleClaimSuccess = (battleId: string) => {
@@ -63,6 +87,7 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#091c29] via-[#08201D] to-[#051418] p-6">
       <h1 className="text-4xl font-bold text-white mb-8">Your Profile</h1>
+      <AttestationTable />
       {profileFetched ? (
         userProfile ? (
           <div className="bg-gray-800 p-6 rounded-lg mb-8">

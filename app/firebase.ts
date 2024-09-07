@@ -18,7 +18,7 @@ export const db = getFirestore(app);
 
 export const addMemeBattle = async (battle: { name: string; description: string; memes: Array<{ name: string; image: string; hashtag: string }> }) => {
   try {
-    const docRef = await addDoc(collection(db, 'battles'), {
+    const docRef = await addDoc(collection(db, 'memeBattles'), {
       ...battle,
       createdAt: serverTimestamp(),
       endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
@@ -202,7 +202,7 @@ export const updateBattleStatus = async (battleId: string, status: 'open' | 'clo
 }
 // Add these functions to your firebase.ts file
 
-export const addUserBet = async (userId: string, battleId: string, memeId: string, amount: number) => {
+export const addUserBet = async (userId: string, battleId: string, memeId: string, amount: number, memeInfo: { name: string, image: string, hashtag: string }) => {
   const userRef = doc(db, 'users', userId);
   const battleRef = doc(db, 'battles', battleId);
 
@@ -213,14 +213,14 @@ export const addUserBet = async (userId: string, battleId: string, memeId: strin
     if (!userDoc.exists()) {
       transaction.set(userRef, {
         battlesParticipated: [battleId],
-        memesBetOn: [{battleId, memeId}],
+        memesBetOn: [{battleId, memeId, memeInfo}],
         totalStaked: amount
       });
     } else {
       const userData = userDoc.data();
       transaction.update(userRef, {
         battlesParticipated: arrayUnion(battleId),
-        memesBetOn: arrayUnion({battleId, memeId}),
+        memesBetOn: arrayUnion({battleId, memeId, memeInfo}),
         totalStaked: (userData.totalStaked || 0) + amount
       });
     }
@@ -272,18 +272,18 @@ export const getUserBattles = async (userId: string) => {
   }
 
   const userData = userDoc.data();
-  const battleIds = userData.battlesParticipated || [];
+  const memesBetOn = userData.memesBetOn || [];
 
-  const battles = await Promise.all(battleIds.map(async (battleId: string) => {
-    const battleRef = doc(db, 'battles', battleId);
+  const battles = await Promise.all(memesBetOn.map(async (bet: { battleId: string, memeId: string, memeInfo: any }) => {
+    const battleRef = doc(db, 'battles', bet.battleId);
     const battleDoc = await getDoc(battleRef);
     if (battleDoc.exists()) {
       const battleData = battleDoc.data();
-      const userBet = userData.memesBetOn.find((bet: { battleId: string; memeId: string }) => bet.battleId === battleId);
       return { 
         id: battleDoc.id, 
         ...battleData, 
-        userBetMemeId: userBet ? userBet.memeId : null 
+        userBetMemeId: bet.memeId,
+        memeInfo: bet.memeInfo
       };
     }
     return null;
