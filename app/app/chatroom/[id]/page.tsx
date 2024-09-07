@@ -110,8 +110,7 @@ const ChatroomPage: React.FC<ChatroomPageProps> = ({name,hashtag}) => {
       getTxHash: (txHash) => {
         console.log("Transaction hash:", txHash as `0x${string}`);
       }
-
-
+    
      } 
 
     );} catch(error){
