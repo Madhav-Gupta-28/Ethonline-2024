@@ -71,14 +71,14 @@ const AttestationTable: React.FC = () => {
         const decodedData = decodeAbiParameters(
           att.schema.data,
           hexData as `0x${string}`
-        );
+        ) as [string , bigint, bigint, bigint, boolean, bigint, string]; // Add this type assertion
 
-        const obj: any = {};
-        decodedData.forEach((item: any, i: number) => {
-          obj[att.schema.data[i].name] = item.toString();
-        });
-
-        return obj;
+        return {
+          meme_id: decodedData[1].toString(),
+          bet_amount: ethers.formatEther(decodedData[3].toString()),
+          bet_timestamp: new Date(Number(decodedData[4]) * 1000).toLocaleString(),
+          action: decodedData[6].toString()
+        };
       } catch (error) {
         console.error('Error decoding attestation data:', error);
         return null;
@@ -89,39 +89,40 @@ const AttestationTable: React.FC = () => {
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
-        <thead>
-          <tr>
-            <th className="px-6 py-3 border-b-2 border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">
-              ID
-            </th>
-            <th className="px-6 py-3 border-b-2 border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">
-              Attester
-            </th>
-            <th className="px-6 py-3 border-b-2 border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">
-              Decoded Data
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {attestations.map((attestation, index) => (
-            <tr key={attestation.id}>
-              <td className="px-6 py-4 whitespace-no-wrap border-b border-gray-500">
-                {attestation.id}
-              </td>
-              <td className="px-6 py-4 whitespace-no-wrap border-b border-gray-500">
-                {attestation.attester}
-              </td>
-              <td className="px-6 py-4 whitespace-no-wrap border-b border-gray-500">
-                {decodedData[index] && (
-                  <pre>{JSON.stringify(decodedData[index], null, 2)}</pre>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="bg-gray-900 bg-opacity-60 rounded-3xl shadow-2xl p-8 backdrop-blur-lg">
+      <h2 className="text-3xl font-bold text-green-400 mb-6">Your Attestations</h2>
+      {attestations.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">No attestations found. Start betting to see your activity!</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-800 bg-opacity-50">
+                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Meme Id</th>
+                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Bet Amount (ETH)</th>
+                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Bet Timestamp</th>
+                <th className="p-4 text-sm font-semibold text-green-300 uppercase tracking-wider">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {attestations.map((attestation, index) => (
+                <tr key={attestation.id} className="hover:bg-gray-800 hover:bg-opacity-30 transition-colors duration-200">
+                  <td className="p-4 text-gray-300">{decodedData[index]?.meme_id}</td>
+                  <td className="p-4 text-gray-300">{decodedData[index]?.bet_amount}</td>
+                  <td className="p-4 text-gray-300">{decodedData[index]?.bet_timestamp}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      decodedData[index]?.action === 'USER_BET' ? 'bg-blue-500 text-blue-100' : 'bg-green-500 text-green-100'
+                    }`}>
+                      {decodedData[index]?.action}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

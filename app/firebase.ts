@@ -22,7 +22,8 @@ export const addMemeBattle = async (battle: { name: string; description: string;
       ...battle,
       createdAt: serverTimestamp(),
       endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      status: 'active'
+      status: 'active',
+      winningMeme: null // Add this line
     });
     console.log("Battle added with ID: ", docRef.id);
     return docRef.id;

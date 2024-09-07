@@ -1,8 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, updateBattleWinner } from '@/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
 import Link from 'next/link';
+
+interface Meme {
+  name: string;
+  image: string;
+  hashtag: string;
+}
 
 const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
   const [battle, setBattle] = useState<any>(null);
@@ -18,12 +24,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
         setBattle(battleData);
         if (battleData.endTime && typeof battleData.endTime.toDate === 'function') {
           setBattleEndTime(battleData.endTime.toDate());
-        } else {
-          console.error('Battle end time is missing or invalid');
-          setBattleEndTime(null);
         }
-      } else {
-        console.error('Battle document does not exist');
       }
     };
     fetchBattleDetails();
@@ -39,7 +40,6 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
         if (distance < 0) {
           clearInterval(timer);
           setTimeLeft('Battle Ended');
-          setWinningMemeIndex(Math.floor(Math.random() * battle.memes.length));
         } else {
           const hours = Math.floor(distance / (1000 * 60 * 60));
           const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
@@ -49,16 +49,58 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
       }, 1000);
 
       return () => clearInterval(timer);
-    } else {
-      setTimeLeft('Battle end time not set');
     }
   }, [battle, battleEndTime]);
 
-  const handleClaimWinnings = async () => {
-    if (winningMemeIndex !== null) {
-      await updateBattleWinner(battleId, winningMemeIndex);
-      alert('Winnings claimed!');
+  const declareWinner = async () => {
+    if (battle.winningMeme !== null) {
+      alert('Winner has already been declared!');
+      return;
     }
+
+    const memeResults = await Promise.all(battle.memes.map(async (meme: Meme) => {
+      if (!meme.hashtag) {
+        console.error('Meme is missing hashtag:', meme);
+        return { meme, mediaCount: 0 };
+      }
+
+      const url = `https://instagram-scraper-20231.p.rapidapi.com/searchtag/${encodeURIComponent(meme.hashtag)}`;
+      const options = {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': 'c026b6f1f8msh176b6da96f22657p17c629jsn3e43e020dd32',
+          'x-rapidapi-host': 'instagram-scraper-20231.p.rapidapi.com'
+        }
+      };
+
+      try {
+        const response = await fetch(url, options);
+        const result = await response.json();
+        return { meme, mediaCount: result.data[0]?.media_count || 0 };
+      } catch (error) {
+        console.error('Error fetching hashtag data:', error);
+        return { meme, mediaCount: 0 };
+      }
+    }));
+
+    const winningMeme = memeResults.reduce((prev, current) => 
+      (prev.mediaCount > current.mediaCount) ? prev : current
+    );
+
+    const winningIndex = battle.memes.findIndex((meme: Meme) => meme.hashtag === winningMeme.meme.hashtag);
+
+    if (winningIndex === -1) {
+      console.error('Winning meme not found in battle memes');
+      return;
+    }
+
+    const battleRef = doc(db, 'battles', battleId);
+    await updateDoc(battleRef, {
+      winningMeme: winningIndex
+    });
+
+    setWinningMemeIndex(winningIndex);
+    setBattle({ ...battle, winningMeme: winningIndex });
   };
 
   if (!battle) return <div>Loading...</div>;
@@ -80,15 +122,18 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
           </div>
         ))}
       </div>
-      {winningMemeIndex !== null && (
+      {timeLeft === 'Battle Ended' && battle.winningMeme === null && (
+        <button
+          onClick={declareWinner}
+          className="mt-8 bg-green-500 text-white px-6 py-3 rounded-md hover:bg-green-600 transition-colors"
+        >
+          Declare Winner
+        </button>
+      )}
+      {battle.winningMeme !== null && (
         <div className="mt-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Winner: {battle.memes[winningMemeIndex].name}</h2>
-          <button
-            onClick={handleClaimWinnings}
-            className="bg-green-500 text-white px-6 py-3 rounded-md hover:bg-green-600 transition-colors"
-          >
-            Claim Winnings
-          </button>
+          <h2 className="text-2xl font-bold text-white mb-4">Winner: {battle.memes[battle.winningMeme].name}</h2>
+          <img src={battle.memes[battle.winningMeme].image} alt={battle.memes[battle.winningMeme].name} className="w-64 h-64 object-cover rounded-md" />
         </div>
       )}
     </div>
