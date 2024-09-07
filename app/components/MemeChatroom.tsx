@@ -152,7 +152,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect , useRef } from "react";
 import {
   collection,
   addDoc,
@@ -162,6 +162,14 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, getMemeDetails, placeBet } from "@/firebase";
+import { useParams } from 'next/navigation';
+import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton,} from '@chakra-ui/react';
+import { useDisclosure , Button , FormControl , FormLabel , Input } from '@chakra-ui/react';
+import {ethers } from "ethers";
+import {  SignProtocolClient,SpMode,  EvmChains,  delegateSignAttestation, delegateSignRevokeAttestation, delegateSignSchema, AttestationResult,} from "@ethsign/sp-sdk";
+
+
+ 
 
 interface Message {
   id: string;
@@ -187,22 +195,44 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   const [account, setAccount] = useState<string | null>(null);
   const [meme, setMeme] = useState<Meme | null>(null);
   const [betAmount, setBetAmount] = useState("");
+  const [isClient, setIsClient] = useState(false);
+  const [attestationCreated , setattestationCreated] = useState<boolean>(false)
+
+
+
+    // Sign Protocol Clint
+    const client = new SignProtocolClient(SpMode.OnChain, {
+      chain: EvmChains.arbitrumSepolia,
+      });
+  
+  
+    const betInputRef = useRef<HTMLInputElement>(null);
+    
+
+    
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+
 
   useEffect(() => {
-    connectWallet();
-    fetchMemeDetails();
-  }, [battleId, memeIndex]);
+    if (isClient) {
+      connectWallet();
+      fetchMemeDetails();
+    }
+  }, [isClient, battleId, memeIndex]);
+
+
 
   const connectWallet = async () => {
-    if (typeof window.ethereum !== "undefined") {
+       if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
       try {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
         await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x66eee" }],
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x66eee' }],
         });
       } catch (error) {
         console.error("Error connecting to MetaMask", error);
@@ -270,20 +300,91 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       return;
     }
 
-    const success = await placeBet(
-      battleId,
-      memeIndex,
-      account,
-      betAmountNumber
-    );
-    if (success) {
-      console.log(
-        `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
-      );
-      setBetAmount("");
-    } else {
-      console.error("Failed to place bet");
+
+    //////////////////////// START ////////////////////////////////////
+    // Implement the Bet Logic of Sign Protocol
+    const currentBetAmount = betInputRef.current?.value;
+    console.log(currentBetAmount);
+
+
+    if(!account) {
+      alert("Wallet not connected");
+      return
     }
+
+
+    
+
+    
+    const betAmountWei = ethers.parseEther(currentBetAmount || '0');
+    const roomIdBigInt = BigInt(memeIndex);
+
+    const UserAddress = account as `0x${string}`;
+
+
+    try{
+       const createAttestationRes = await client.createAttestation(
+        {
+          schemaId: "0xda",
+          data: {
+            user: UserAddress,
+            meme_id: roomIdBigInt,
+            bet_amount: betAmountWei  ,
+            bet_timestamp: Math.floor(Date.now()   / 1000)  ,
+            result: false,
+            win_amount: BigInt(0),
+            action: "USER_BET"
+          },
+          indexingValue: `${account.toLowerCase()}_${roomIdBigInt}`,
+       },
+       {
+        resolverFeesETH: betAmountWei,
+        getTxHash: (txHash) => {
+          console.log("Transaction hash:", txHash as `0x${string}`);
+        }
+      
+       } 
+  
+      )
+
+       
+      if(createAttestationRes){
+        setattestationCreated(true);
+      }
+       
+
+      console.log("createAttestation response", createAttestationRes)
+
+     } catch(error){
+        console.log("Error when running createAttestation function", error)
+      }
+      ////////////// END      /////////////////////////////////////////
+
+      
+      if(attestationCreated){
+        const success = await placeBet(
+          battleId,
+          memeIndex,
+          account,
+          betAmountNumber
+        );
+
+        if (success) {
+          console.log(
+            `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
+          );
+          setBetAmount("");
+        } else {
+          console.error("Failed to place bet");
+        }
+      }else{
+        alert("Creation of Attestation Failed")
+      }
+
+    
+
+
+    
   };
 
   if (!account) {
@@ -307,12 +408,14 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
         <input
           type="number"
           value={betAmount}
+          ref={betInputRef}
           onChange={(e) => setBetAmount(e.target.value)}
           className="w-1/3 border border-gray-600 bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-green-400"
           placeholder="Bet amount"
         />
         <button
           onClick={handleBet}
+          
           className="bg-green-500 hover:bg-green-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
         >
           Place Bet
