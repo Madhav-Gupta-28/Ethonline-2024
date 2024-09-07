@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDoc, doc } from "firebase/firestore";
-import { db, getMemeDetails, placeBet, updateUserBet } from "@/firebase";
+import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus } from "@/firebase";
 import { ethers } from "ethers";
 import { SignProtocolClient, SpMode, EvmChains, AttestationResult } from "@ethsign/sp-sdk";
 
@@ -30,20 +30,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   const [account, setAccount] = useState<string | null>(null);
   const [meme, setMeme] = useState<Meme | null>(null);
   const [betAmount, setBetAmount] = useState("");
-  const [isClient, setIsClient] = useState(false);
-  const [attestationCreated, setattestationCreated] = useState<boolean>(false);
-  const [battleEndTime, setBattleEndTime] = useState<Date | null>(null);
   const [isBettingClosed, setIsBettingClosed] = useState(false);
-
-  const client = new SignProtocolClient(SpMode.OnChain, {
-    chain: EvmChains.arbitrumSepolia,
-  });
-
-  const betInputRef = useRef<HTMLInputElement>(null);
+  const [isBettingOpen, setIsBettingOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [battleEndTime, setBattleEndTime] = useState<Date | null>(null);
+  const [attestationCreated, setAttestationCreated] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  const client = isClient ? new SignProtocolClient(SpMode.OnChain, {
+    chain: EvmChains.arbitrumSepolia,
+  }) : null;
+
+  const betInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isClient) {
@@ -53,8 +54,16 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
     }
   }, [isClient, battleId, memeIndex]);
 
+  useEffect(() => {
+    const checkBattleStatus = async () => {
+      const status = await getBattleStatus(battleId);
+      setIsBettingOpen(status === 'open');
+    };
+    checkBattleStatus();
+  }, [battleId]);
+
   const connectWallet = async () => {
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
+    if (isClient && typeof window.ethereum !== 'undefined') {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
@@ -78,17 +87,10 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   };
 
   const fetchBattleDetails = async () => {
-    const battleDoc = await getDoc(doc(db, 'memeBattles', battleId));
+    const battleDoc = await getDoc(doc(db, 'battles', battleId));
     if (battleDoc.exists()) {
       const battleData = battleDoc.data();
-      if (battleData.endTime && typeof battleData.endTime.toDate === 'function') {
-        setBattleEndTime(battleData.endTime.toDate());
-      } else {
-        console.error('Battle end time is missing or invalid');
-        setBattleEndTime(null);
-      }
-    } else {
-      console.error('Battle document does not exist');
+      setBattleEndTime(battleData.endTime.toDate());
     }
   };
 
@@ -149,14 +151,12 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
     }
   };
 
-  const handleBet = async () => {
-    if (!account || !betAmount || isBettingClosed) return;
-    const betAmountNumber = parseFloat(betAmount);
-    if (isNaN(betAmountNumber) || betAmountNumber <= 0) {
-      console.error("Invalid bet amount");
-      return;
-    }
-
+  const handlePlaceBet = async () => {
+    // if (!isBettingOpen) {
+    //   alert("Betting is closed for this battle.");
+    //   return;
+    // }
+ 
     const currentBetAmount = betInputRef.current?.value;
     console.log(currentBetAmount);
 
@@ -169,6 +169,11 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
     const roomIdBigInt = BigInt(memeIndex);
 
     const UserAddress = account as `0x${string}`;
+
+    if (!client) {
+      console.error("SignProtocolClient is not initialized");
+      return;
+    }
 
     try {
       const createAttestationRes = await client.createAttestation(
@@ -195,14 +200,14 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       );
 
       if (createAttestationRes) {
-        setattestationCreated(true);
-        await updateUserBet(account, battleId, memeIndex, betAmountNumber);
+        setAttestationCreated(true);
+        await updateUserBet(account, battleId, memeIndex, Number(currentBetAmount));
 
         const success = await placeBet(
           battleId,
           memeIndex,
           account,
-          betAmountNumber
+          Number(currentBetAmount)
         );
 
         if (success) {
@@ -221,8 +226,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
     }
   };
 
+  if (!isClient) {
+    return null; // or a loading indicator
+  }
+
   if (!account) {
-    return <div>Please connect your wallet to access the chatroom.</div>;
+    return (
+      <div className="p-6 bg-gradient-to-b from-[#091c29] via-[#08201D] to-[#051418] min-h-screen mt-4 rounded-3xl shadow-xl">
+        <button
+          onClick={connectWallet}
+          className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
+        >
+          Connect Wallet
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -238,9 +256,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           <p className="text-gray-400 text-lg">#{meme.hashtag}</p>
         </div>
       )}
-      {isBettingClosed ? (
-        <p className="text-red-500">Betting is closed for this battle.</p>
-      ) : (
+      {isBettingOpen ? (
         <div className="mb-6 flex items-center gap-4">
           <input
             type="number"
@@ -251,12 +267,14 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
             placeholder="Bet amount"
           />
           <button
-            onClick={handleBet}
+            onClick={() => handlePlaceBet()}
             className="bg-green-500 hover:bg-green-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
           >
             Place Bet
           </button>
         </div>
+      ) : (
+        <p className="text-red-500">Betting is closed for this battle.</p>
       )}
       <div className="mb-6 h-64 overflow-y-auto border border-gray-600 p-4 bg-gray-900 rounded-lg shadow-lg">
         {messages.map((message) => (

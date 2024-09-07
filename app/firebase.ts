@@ -2,7 +2,7 @@ import { initializeApp, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, where, getDocs, query } from "firebase/firestore";
 import { collection, addDoc, updateDoc, arrayUnion, doc, getDoc, setDoc } from 'firebase/firestore';
 import { increment } from 'firebase/firestore';
-
+import { serverTimestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,19 +16,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-export const addMemeBattle = async (battleData: {
-  name: string;
-  description: string;
-}) => {
+export const addMemeBattle = async (battle: { name: string; description: string }) => {
   try {
-    const docRef = await addDoc(collection(db, "memeBattles"), {
-      ...battleData,
-      memes: []
+    const docRef = await addDoc(collection(db, 'battles'), {
+      ...battle,
+      createdAt: serverTimestamp(),
+      endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      status: 'active'
     });
-    console.log("Meme battle added with ID: ", docRef.id);
+    console.log("Battle added with ID: ", docRef.id);
     return docRef.id;
   } catch (e) {
-    console.error("Error adding meme battle: ", e);
+    console.error("Error adding battle: ", e);
     return null;
   }
 };
@@ -166,4 +165,34 @@ export const getUserBattles = async (userAddress: string) => {
     id: doc.id,
     ...doc.data(),
   }));
+};
+
+// Add this function to get battle status
+export const getBattleStatus = async (battleId: string) => {
+  try {
+    const battleDoc = await getDoc(doc(db, "memeBattles", battleId));
+    if (battleDoc.exists()) {
+      const battleData = battleDoc.data();
+      return battleData.status || 'closed'; // Default to 'closed' if status is not set
+    } else {
+      console.log("No such battle!");
+      return 'closed';
+    }
+  } catch (e) {
+    console.error("Error getting battle status: ", e);
+    return 'closed';
+  }
+};
+
+// Add a function to update battle status
+export const updateBattleStatus = async (battleId: string, status: 'open' | 'closed') => {
+  try {
+    const battleRef = doc(db, "memeBattles", battleId);
+    await updateDoc(battleRef, { status });
+    console.log(`Battle status updated to ${status}`);
+    return true;
+  } catch (e) {
+    console.error("Error updating battle status: ", e);
+    return false;
+  }
 };
