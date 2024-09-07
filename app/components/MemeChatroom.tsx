@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDoc, doc } from "firebase/firestore";
-import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus, addUserBet } from "@/firebase";
+import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus, addMemeToBattle, addUserBet } from "@/firebase";
 import { ethers } from "ethers";
 import { SignProtocolClient, SpMode, EvmChains, AttestationResult } from "@ethsign/sp-sdk";
 
@@ -31,10 +31,10 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   const [meme, setMeme] = useState<Meme | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [isBettingClosed, setIsBettingClosed] = useState(false);
-  const [isBettingOpen, setIsBettingOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [battleEndTime, setBattleEndTime] = useState<Date | null>(null);
   const [attestationCreated, setAttestationCreated] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
@@ -57,7 +57,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   useEffect(() => {
     const checkBattleStatus = async () => {
       const status = await getBattleStatus(battleId);
-      setIsBettingOpen(status === 'open');
+      setIsBettingClosed(status !== 'open');
     };
     checkBattleStatus();
   }, [battleId]);
@@ -96,15 +96,25 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
   useEffect(() => {
     if (battleEndTime) {
-      const interval = setInterval(() => {
-        if (new Date() >= battleEndTime) {
+      const timer = setInterval(() => {
+        const now = new Date().getTime();
+        const endTime = battleEndTime.getTime();
+        const distance = endTime - now;
+
+        if (distance < 0) {
+          clearInterval(timer);
+          setTimeLeft('Battle Ended');
           setIsBettingClosed(true);
-          clearInterval(interval);
+        } else {
+          const hours = Math.floor(distance / (1000 * 60 * 60));
+          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+          setIsBettingClosed(false);
         }
       }, 1000);
-      return () => clearInterval(interval);
-    } else {
-      setIsBettingClosed(true); // Assume betting is closed if end time is not set
+
+      return () => clearInterval(timer);
     }
   }, [battleEndTime]);
 
@@ -196,22 +206,12 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
       if (createAttestationRes) {
         setAttestationCreated(true);
+        
+        // Add user bet
         await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount));
-        const success = await placeBet(
-          battleId,
-          memeIndex,
-          account,
-          Number(currentBetAmount)
-        );
-
-        if (success) {
-          console.log(
-            `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
-          );
-          setBetAmount("");
-        } else {
-          console.error("Failed to place bet");
-        }
+  
+        console.log(`Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`);
+        setBetAmount("");
       } else {
         alert("Creation of Attestation Failed");
       }
@@ -250,7 +250,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           <p className="text-gray-400 text-lg">#{meme.hashtag}</p>
         </div>
       )}
-      {isBettingOpen ? (
+      {!isBettingClosed ? (
         <div className="mb-6 flex items-center gap-4">
           <input
             type="number"
@@ -270,6 +270,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       ) : (
         <p className="text-red-500">Betting is closed for this battle.</p>
       )}
+      <p className="text-lg text-yellow-400 mb-6">Time left: {timeLeft}</p>
       <div className="mb-6 h-64 overflow-y-auto border border-gray-600 p-4 bg-gray-900 rounded-lg shadow-lg">
         {messages.map((message) => (
           <div key={message.id} className="mb-4 flex items-start gap-2">

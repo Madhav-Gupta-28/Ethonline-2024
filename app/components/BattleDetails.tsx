@@ -12,7 +12,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
 
   useEffect(() => {
     const fetchBattleDetails = async () => {
-      const battleDoc = await getDoc(doc(db, 'memeBattles', battleId));
+      const battleDoc = await getDoc(doc(db, 'battles', battleId));
       if (battleDoc.exists()) {
         const battleData = battleDoc.data();
         setBattle(battleData);

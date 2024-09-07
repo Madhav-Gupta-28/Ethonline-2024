@@ -326,13 +326,9 @@ const AddMemeBattle: React.FC = () => {
     if (validateBattleFields() && memes.length > 0) {
       try {
         console.log('Attempting to add meme battle...');
-        const battleId = await addMemeBattle({ name: battleName, description: battleDescription });
+        const battleId = await addMemeBattle({ name: battleName, description: battleDescription, memes });
         console.log('Meme battle added, ID:', battleId);
         if (battleId) {
-          for (const meme of memes) {
-            console.log('Adding meme to battle:', meme);
-            await addMemeToBattle(battleId, meme);
-          }
           console.log('All memes added to battle');
           router.push('/battles');
         } else {
