@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDoc, doc } from "firebase/firestore";
-import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus } from "@/firebase";
+import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus, addUserBet } from "@/firebase";
 import { ethers } from "ethers";
 import { SignProtocolClient, SpMode, EvmChains, AttestationResult } from "@ethsign/sp-sdk";
 
@@ -196,8 +196,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
       if (createAttestationRes) {
         setAttestationCreated(true);
-        await updateUserBet(account, battleId, memeIndex, Number(currentBetAmount));
-
+        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount));
         const success = await placeBet(
           battleId,
           memeIndex,

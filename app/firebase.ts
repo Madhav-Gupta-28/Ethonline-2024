@@ -155,17 +155,6 @@ export const updateBattleWinner = async (battleId: string, winningMemeIndex: num
 
 
 
-// Add this function to your existing firebase.ts file
-export const getUserBattles = async (userAddress: string) => {
-  const battlesRef = collection(db, 'memeBattles');
-  const q = query(battlesRef, where('participants', 'array-contains', userAddress));
-  const querySnapshot = await getDocs(q);
-  
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
-};
 
 // Add this function to get battle status
 export const getBattleStatus = async (battleId: string) => {
@@ -195,4 +184,62 @@ export const updateBattleStatus = async (battleId: string, status: 'open' | 'clo
     console.error("Error updating battle status: ", e);
     return false;
   }
+};
+
+// Add these functions to your firebase.ts file
+
+export const addUserBet = async (userId: string, battleId: string, memeId: string, amount: number) => {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+
+  if (!userDoc.exists()) {
+    await setDoc(userRef, {
+      battlesParticipated: 1,
+      wins: 0,
+      totalStaked: amount
+    });
+  } else {
+    await updateDoc(userRef, {
+      battlesParticipated: increment(1),
+      totalStaked: increment(amount)
+    });
+  }
+
+  const battleRef = doc(db, 'battles', battleId);
+  await updateDoc(battleRef, {
+    [`memes.${memeId}.bets.${userId}`]: amount
+  });
+};
+
+export const updateWinningMeme = async (battleId: string, memeId: string) => {
+  const battleRef = doc(db, 'battles', battleId);
+  await updateDoc(battleRef, {
+    winningMeme: memeId
+  });
+
+  const battleDoc = await getDoc(battleRef);
+  const battleData = battleDoc.data();
+  const winningMeme = battleData?.memes[memeId];
+
+  if (winningMeme && winningMeme.bets) {
+    for (const userId in winningMeme.bets) {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        wins: increment(1)
+      });
+    }
+  }
+};
+
+export const getUserProfile = async (userId: string) => {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  return userDoc.data();
+};
+
+export const getUserBattles = async (userId: string) => {
+  const battlesRef = collection(db, 'battles');
+  const q = query(battlesRef, where(`memes.*.bets.${userId}`, '>', 0));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
