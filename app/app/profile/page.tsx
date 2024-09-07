@@ -12,6 +12,7 @@ interface Battle {
   winningMeme: string;
   claimed: boolean;
   memes: any[]; // Replace 'any[]' with a more specific type if possible
+  userBetMemeId: string; // Add this line
 }
 
 const UserProfile = () => {
@@ -66,8 +67,7 @@ const UserProfile = () => {
         userProfile ? (
           <div className="bg-gray-800 p-6 rounded-lg mb-8">
             <h2 className="text-2xl font-bold text-white mb-4">Stats</h2>
-            <p className="text-white">Battles Participated: {userProfile.battlesParticipated || 0}</p>
-            <p className="text-white">Wins: {userProfile.wins || 0}</p>
+            <p className="text-white">Battles Participated: {userProfile.battlesParticipated?.length || 0}</p>
             <p className="text-white">Total Staked: {userProfile.totalStaked || 0} ETH</p>
           </div>
         ) : (
@@ -80,7 +80,12 @@ const UserProfile = () => {
       {battles.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {battles.map((battle) => (
-            <UserBattleCard key={battle.id} battle={battle} onClaimSuccess={handleClaimSuccess} />
+            <UserBattleCard 
+              key={battle.id} 
+              battle={battle} 
+              userBetMemeId={battle.userBetMemeId}
+              onClaimSuccess={handleClaimSuccess} 
+            />
           ))}
         </div>
       ) : (

@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore, where, getDocs, query } from "firebase/firestore";
+import { getFirestore, Firestore, where, getDocs, query, runTransaction } from "firebase/firestore";
 import { collection, addDoc, updateDoc, arrayUnion, doc, getDoc, setDoc } from 'firebase/firestore';
 import { increment } from 'firebase/firestore';
 import { serverTimestamp } from 'firebase/firestore';
@@ -190,33 +190,40 @@ export const updateBattleStatus = async (battleId: string, status: 'open' | 'clo
 
 export const addUserBet = async (userId: string, battleId: string, memeId: string, amount: number) => {
   const userRef = doc(db, 'users', userId);
-  const userDoc = await getDoc(userRef);
-
-  if (!userDoc.exists()) {
-    await setDoc(userRef, {
-      battlesParticipated: 1,
-      wins: 0,
-      totalStaked: amount,
-      bets: [{battleId, memeId, amount}]
-    });
-  } else {
-    await updateDoc(userRef, {
-      battlesParticipated: increment(1),
-      totalStaked: increment(amount),
-      bets: arrayUnion({battleId, memeId, amount})
-    });
-  }
-
   const battleRef = doc(db, 'battles', battleId);
-  const battleDoc = await getDoc(battleRef);
+  const memeRef = doc(battleRef, 'memes', memeId);
 
-  if (!battleDoc.exists()) {
-    console.error(`Battle document ${battleId} does not exist`);
-    return;
-  }
+  await runTransaction(db, async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    const memeDoc = await transaction.get(memeRef);
 
-  await updateDoc(battleRef, {
-    [`memes.${memeId}.bets.${userId}`]: amount
+    if (!userDoc.exists()) {
+      transaction.set(userRef, {
+        battlesParticipated: [battleId],
+        memesBetOn: [{battleId, memeId}],
+        totalStaked: amount
+      });
+    } else {
+      const userData = userDoc.data();
+      transaction.update(userRef, {
+        battlesParticipated: arrayUnion(battleId),
+        memesBetOn: arrayUnion({battleId, memeId}),
+        totalStaked: (userData.totalStaked || 0) + amount
+      });
+    }
+
+    if (!memeDoc.exists()) {
+      transaction.set(memeRef, {
+        participatedUsers: [userId],
+        totalBets: amount
+      });
+    } else {
+      const memeData = memeDoc.data();
+      transaction.update(memeRef, {
+        participatedUsers: arrayUnion(userId),
+        totalBets: (memeData.totalBets || 0) + amount
+      });
+    }
   });
 };
 
@@ -255,13 +262,19 @@ export const getUserBattles = async (userId: string) => {
   }
 
   const userData = userDoc.data();
-  const userBets = userData.bets || [];
+  const battleIds = userData.battlesParticipated || [];
 
-  const battles = await Promise.all(userBets.map(async (bet) => {
-    const battleRef = doc(db, 'battles', bet.battleId);
+  const battles = await Promise.all(battleIds.map(async (battleId: string) => {
+    const battleRef = doc(db, 'battles', battleId);
     const battleDoc = await getDoc(battleRef);
     if (battleDoc.exists()) {
-      return { id: battleDoc.id, ...battleDoc.data() };
+      const battleData = battleDoc.data();
+      const userBet = userData.memesBetOn.find((bet: { battleId: string; memeId: string }) => bet.battleId === battleId);
+      return { 
+        id: battleDoc.id, 
+        ...battleData, 
+        userBetMemeId: userBet ? userBet.memeId : null 
+      };
     }
     return null;
   }));

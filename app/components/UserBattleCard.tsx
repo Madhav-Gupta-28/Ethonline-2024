@@ -17,7 +17,7 @@ interface Battle {
   }>;
 }
 
-const UserBattleCard = ({ battle, onClaimSuccess }: { battle: Battle; onClaimSuccess: (id: string) => void }) => {
+const UserBattleCard = ({ battle, userBetMemeId, onClaimSuccess }: { battle: Battle; userBetMemeId: string | null; onClaimSuccess: (id: string) => void }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [client, setClient] = useState<SignProtocolClient | null>(null);
