@@ -10,6 +10,7 @@ import {ethers } from "ethers";
 
 
 import {  SignProtocolClient,SpMode,  EvmChains,  delegateSignAttestation, delegateSignRevokeAttestation, delegateSignSchema,} from "@ethsign/sp-sdk";
+import { Result } from 'postcss';
 
 
 
@@ -80,51 +81,47 @@ const ChatroomPage: React.FC<ChatroomPageProps> = ({name,hashtag}) => {
     }
 
     const betAmountWei = ethers.parseEther(currentBetAmount || '0');
+    const roomIdBigInt = BigInt(1);
+
 
 
     console.log(account);
 
 
-    // Define Action enum
-    enum Action{
-      USER_BET = 0 ,
-      MEME_WIN = 1
+    const UserAddress = account as `0x${string}`;
+
+    try{
+    const createAttestationRes = await client.createAttestation(
+      {
+        schemaId: "0xda",
+        data: {
+          user: UserAddress,
+          meme_id: roomIdBigInt,
+          bet_amount: betAmountWei  ,
+          bet_timestamp: Math.floor(Date.now()   / 1000)  ,
+          result: false,
+          win_amount: BigInt(0),
+          action: "USER_BET"
+        },
+        indexingValue: `${account.toLowerCase()}_${roomIdBigInt}`,
+     },
+     {
+      resolverFeesETH: betAmountWei,
+      getTxHash: (txHash) => {
+        console.log("Transaction hash:", txHash as `0x${string}`);
+      }
+
+
+     } 
+
+    );} catch(error){
+      console.log("Error when running createAttestation function", error)
     }
 
 
-     // Prepare the extra data
-    const extraData = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['uint8', 'uint256', 'uint256'],
-      [Action.USER_BET, "1", betAmountWei]
-    );
-
-    const UserAddress = account as `0x${string}`
+    
 
 
-    const createAttestationRes = await client.createAttestation(
-      {
-        schemaId: "0xc4",
-        data: {
-          user: UserAddress,
-          meme_id: "memeName_1",
-          bet_amount: betAmountWei,
-          bet_timestamp: Math.floor(Date.now() / 1000)
-        },
-        indexingValue: `${account.toLowerCase()}_${roomId}`,
-      },
-      {
-        extraData: extraData,
-        getTxHash: (txHash) => {
-          console.log("Transaction hash:", txHash as `0x${string}`);
-        }
-      }
-    );
-
-
-   
-
-
-    console.log(createAttestationRes);
   }
 
 
