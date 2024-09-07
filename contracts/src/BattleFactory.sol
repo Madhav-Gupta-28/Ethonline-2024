@@ -24,7 +24,7 @@ contract BattleFactory {
     function deployBattle(string[] memory memeNames , address _userContractAddress) external returns (address) {
        
         // Deploy a new battle contract
-        MemeBattle newBattle = new MemeBattle(memeNames, msg.sender , _userContractAddress);
+        MemeBattle newBattle = new MemeBattle(memeNames,  _userContractAddress);
 
         // Store the battle and token details in the battles array
         battles.push(BattleInfo({
