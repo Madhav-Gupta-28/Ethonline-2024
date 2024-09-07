@@ -71,7 +71,7 @@ const UserProfile = () => {
             <p className="text-white">Total Staked: {userProfile.totalStaked || 0} ETH</p>
           </div>
         ) : (
-          <p className="text-white mb-8">You haven't participated in any battles yet. Place a bet on a meme to get started!</p>
+          <p className="text-white mb-8">You havent participated in any battles yet. Place a bet on a meme to get started!</p>
         )
       ) : (
         <p className="text-white mb-8">Loading user profile...</p>
@@ -89,7 +89,7 @@ const UserProfile = () => {
           ))}
         </div>
       ) : (
-        <p className="text-white">You haven't participated in any battles yet.</p>
+        <p className="text-white">You havent participated in any battles yet.</p>
       )}
     </div>
   );

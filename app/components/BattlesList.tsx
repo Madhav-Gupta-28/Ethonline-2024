@@ -28,10 +28,13 @@ const BattlesList: React.FC = () => {
       setLoading(true);
       const battlesCollection = collection(db, "battles");
       const battleSnapshot = await getDocs(battlesCollection);
-      const battleList = battleSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      } as MemeBattle));
+      const battleList = battleSnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          } as MemeBattle)
+      );
       setMemeBattles(battleList);
       console.log("Fetched meme battles:", battleList);
     } catch (error) {
@@ -42,7 +45,9 @@ const BattlesList: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="text-white text-center mt-10">Loading battles...</div>;
+    return (
+      <div className="text-white text-center mt-10">Loading battles...</div>
+    );
   }
 
   if (memeBattles.length === 0) {
@@ -70,8 +75,8 @@ const BattlesList: React.FC = () => {
             key={battle.id}
             className="group"
           >
-            <div className="bg-gradient-to-r from-green-800 via-green-900 to-green-950 p-6 rounded-lg shadow-lg transition-transform transform group-hover:scale-105 group-hover:shadow-xl">
-              <h2 className="text-2xl font-semibold text-white mb-2">
+            <div className="bg-[#18191A] border-2 border-[#303031] backdrop-blur-xl p-6 rounded-lg shadow-lg transition-transform transform group-hover:scale-105 group-hover:shadow-xl">
+              <h2 className="text-2xl font-semibold text-purple-500 mb-2">
                 {battle.name}
               </h2>
               <p className="text-sm text-gray-300 mb-4">{battle.description}</p>
@@ -85,7 +90,7 @@ const BattlesList: React.FC = () => {
       <div className="flex justify-center mt-8">
         <Link
           href="/addMemeBattle"
-          className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-6 py-3 rounded-lg shadow-lg hover:from-green-500 hover:to-blue-600 transition-transform transform hover:scale-105"
+          className="text-white bg-gradient-to-br from-[#410DEF] to-[#8301D3] hover:bg-gradient-to-bl font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
         >
           Add New Meme Battle
         </Link>

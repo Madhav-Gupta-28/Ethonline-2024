@@ -1,10 +1,32 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, getDoc, doc } from "firebase/firestore";
-import { db, getMemeDetails, placeBet, updateUserBet, getBattleStatus, addMemeToBattle, addUserBet } from "@/firebase";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  getDoc,
+  doc,
+} from "firebase/firestore";
+import {
+  db,
+  getMemeDetails,
+  placeBet,
+  updateUserBet,
+  getBattleStatus,
+  addMemeToBattle,
+  addUserBet,
+} from "@/firebase";
 import { ethers } from "ethers";
-import { SignProtocolClient, SpMode, EvmChains, AttestationResult } from "@ethsign/sp-sdk";
+import {
+  SignProtocolClient,
+  SpMode,
+  EvmChains,
+  AttestationResult,
+} from "@ethsign/sp-sdk";
 
 interface Message {
   id: string;
@@ -34,15 +56,17 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   const [isClient, setIsClient] = useState(false);
   const [battleEndTime, setBattleEndTime] = useState<Date | null>(null);
   const [attestationCreated, setAttestationCreated] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<string>("");
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const client = isClient ? new SignProtocolClient(SpMode.OnChain, {
-    chain: EvmChains.arbitrumSepolia,
-  }) : null;
+  const client = isClient
+    ? new SignProtocolClient(SpMode.OnChain, {
+        chain: EvmChains.arbitrumSepolia,
+      })
+    : null;
 
   const betInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,19 +81,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   useEffect(() => {
     const checkBattleStatus = async () => {
       const status = await getBattleStatus(battleId);
-      setIsBettingClosed(status !== 'open');
+      setIsBettingClosed(status !== "open");
     };
     checkBattleStatus();
   }, [battleId]);
 
   const connectWallet = async () => {
-    if (isClient && typeof window.ethereum !== 'undefined') {
+    if (isClient && typeof window.ethereum !== "undefined") {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
         setAccount(accounts[0]);
         await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x66eee' }],
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x66eee" }],
         });
       } catch (error) {
         console.error("Error connecting to MetaMask", error);
@@ -87,7 +113,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
   };
 
   const fetchBattleDetails = async () => {
-    const battleDoc = await getDoc(doc(db, 'battles', battleId));
+    const battleDoc = await getDoc(doc(db, "battles", battleId));
     if (battleDoc.exists()) {
       const battleData = battleDoc.data();
       setBattleEndTime(battleData.endTime.toDate());
@@ -103,11 +129,13 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
         if (distance < 0) {
           clearInterval(timer);
-          setTimeLeft('Battle Ended');
+          setTimeLeft("Battle Ended");
           setIsBettingClosed(true);
         } else {
           const hours = Math.floor(distance / (1000 * 60 * 60));
-          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const minutes = Math.floor(
+            (distance % (1000 * 60 * 60)) / (1000 * 60)
+          );
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
           setIsBettingClosed(false);
@@ -170,7 +198,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       return;
     }
 
-    const betAmountWei = ethers.parseEther(currentBetAmount || '0');
+    const betAmountWei = ethers.parseEther(currentBetAmount || "0");
     const roomIdBigInt = BigInt(memeIndex);
 
     const UserAddress = account as `0x${string}`;
@@ -187,12 +215,12 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           data: {
             user: UserAddress,
             // meme_id: roomIdBigInt,
-            meme_id : BigInt(3),
+            meme_id: BigInt(3),
             bet_amount: betAmountWei,
             bet_timestamp: Math.floor(Date.now() / 1000),
             result: false,
             win_amount: BigInt(0),
-            action: "USER_BET"
+            action: "USER_BET",
           },
           indexingValue: `${account.toLowerCase()}_${roomIdBigInt}`,
         },
@@ -200,17 +228,24 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           resolverFeesETH: betAmountWei,
           getTxHash: (txHash) => {
             console.log("Transaction hash:", txHash as `0x${string}`);
-          }
+          },
         }
       );
 
       if (createAttestationRes) {
         setAttestationCreated(true);
-        
+
         // Add user bet
-        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount));
-  
-        console.log(`Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`);
+        await addUserBet(
+          UserAddress,
+          battleId,
+          memeIndex.toString(),
+          Number(currentBetAmount)
+        );
+
+        console.log(
+          `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
+        );
         setBetAmount("");
       } else {
         alert("Creation of Attestation Failed");
@@ -226,22 +261,24 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
   if (!account) {
     return (
-      <div className="p-6 bg-gradient-to-b from-[#091c29] via-[#08201D] to-[#051418] min-h-screen mt-4 rounded-3xl shadow-xl">
+      <div className="p-6 bg-[#080B0F] mt-4 rounded-3xl shadow-xl flex justify-center items-start h-fit w-full">
         <button
           onClick={connectWallet}
-          className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
+          className="text-white bg-gradient-to-br from-[#410DEF] to-[#8301D3] hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
         >
-          Connect Wallet
+          Connect Wallet to proceed
         </button>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gradient-to-b from-[#091c29] via-[#08201D] to-[#051418] min-h-screen mt-4 rounded-3xl shadow-xl">
+    <div className="p-6 bg-[#080B0F] min-h-screen mt-4 rounded-3xl shadow-xl">
       {meme && (
         <div className="mb-6">
-          <h1 className="text-4xl font-extrabold text-white mb-4">{meme.name}</h1>
+          <h1 className="text-4xl font-extrabold text-white mb-4">
+            {meme.name}
+          </h1>
           <img
             src={meme.image}
             alt={meme.name}
@@ -257,26 +294,26 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
             value={betAmount}
             ref={betInputRef}
             onChange={(e) => setBetAmount(e.target.value)}
-            className="w-1/3 border border-gray-600 bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-green-400"
+            className="w-1/3 border border-[#6B0CDF] bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-green-400"
             placeholder="Bet amount"
           />
           <button
             onClick={() => handlePlaceBet()}
-            className="bg-green-500 hover:bg-green-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
+            className="text-white bg-gradient-to-br from-[#410DEF] to-[#8301D3] hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center"
           >
             Place Bet
           </button>
         </div>
       ) : (
-        <p className="text-red-500">Betting is closed for this battle.</p>
+        <p className="text-red-600">Betting is closed for this battle.</p>
       )}
-      <p className="text-lg text-yellow-400 mb-6">Time left: {timeLeft}</p>
-      <div className="mb-6 h-64 overflow-y-auto border border-gray-600 p-4 bg-gray-900 rounded-lg shadow-lg">
+      <p className="text-lg text-red-500 mb-6">Time left: {timeLeft}</p>
+      <div className="mb-6 h-64 overflow-y-auto border border-[#6B0CDF] p-4 bg-[#18191A] rounded-lg shadow-lg">
         {messages.map((message) => (
           <div key={message.id} className="mb-4 flex items-start gap-2">
             <div className="w-10 h-10 bg-gray-700 rounded-full flex-shrink-0" />
             <div className="flex flex-col">
-              <span className="font-bold text-green-400">
+              <span className="font-bold text-[#6B0CDF]">
                 {message.sender.slice(0, 6)}...{message.sender.slice(-4)}
               </span>
               <span className="text-gray-300">{message.content}</span>
@@ -289,12 +326,12 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          className="flex-grow border border-gray-600 bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-grow border bg-transparent p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-400 border-[#6B0CDF]"
           placeholder="Type a message..."
         />
         <button
           type="submit"
-          className="bg-blue-500 hover:bg-blue-600 transition-colors text-white px-5 py-3 rounded-lg shadow-md"
+          className="text-gray-200 font-semibold bg-[#6B0CDF] px-4 py-2 rounded-xl cursor-pointer border-2 border-transparent hover:border-2 hover:border-[#6B0CDF] hover:bg-transparent"
         >
           Send
         </button>
