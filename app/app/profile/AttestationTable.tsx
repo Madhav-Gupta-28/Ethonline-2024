@@ -45,7 +45,7 @@ const AttestationTable: React.FC = () => {
         const indexService = new IndexService("testnet");
         const res = await indexService.queryAttestationList({
           id: "",
-          schemaId: "onchain_evm_421614_0xe5",
+          schemaId: "onchain_evm_421614_0xe9",
           attester: "",
           page: 1,
           mode: "onchain",
@@ -133,7 +133,7 @@ const AttestationTable: React.FC = () => {
       toast.info('Creating claim attestation...', { autoClose: false });
       const createAttestationRes = await client.createAttestation(
         {
-          schemaId: "0xe5",
+          schemaId: "0xe9",
           data: {
             user: address,
             battleId: battleId,

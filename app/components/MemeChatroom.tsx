@@ -219,7 +219,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       toast.info("Placing bet...", { autoClose: false });
       const createAttestationRes = await client.createAttestation(
         {
-          schemaId: "0xe5",
+          schemaId: "0xe9",
           data: {
             user: UserAddress,
             battleId: battleId as string,
