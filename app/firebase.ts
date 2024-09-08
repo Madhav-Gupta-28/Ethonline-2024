@@ -18,10 +18,11 @@ export const db = getFirestore(app);
 
 export const addMemeBattle = async (battle: { name: string; description: string; memes: Array<{ name: string; image: string; hashtag: string }> }) => {
   try {
-    const docRef = await addDoc(collection(db, 'memeBattles'), {
+    const docRef = await addDoc(collection(db, 'battles'), {
       ...battle,
       createdAt: serverTimestamp(),
-      endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      // endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      endTime: new Date(Date.now() + 2 * 60* 1000 ),
       status: 'active',
       winningMeme: null // Add this line
     });
@@ -76,7 +77,7 @@ export const placeBet = async (
   amount: number
 ) => {
   try {
-    const betRef = doc(db, "memeBattles", battleId, "bets", userAddress);
+    const betRef = doc(db, "battles", battleId, "bets", userAddress);
     await setDoc(betRef, {
       memeIndex,
       amount,
@@ -107,7 +108,7 @@ export const getBattleDetails = async (battleId: string) => {
 
 export const getMemeDetails = async (battleId: string, memeIndex: number) => {
   try {
-    const battleDoc = await getDoc(doc(db, "memeBattles", battleId));
+    const battleDoc = await getDoc(doc(db, "battles", battleId));
     if (battleDoc.exists()) {
       const battleData = battleDoc.data();
       if (battleData.memes && battleData.memes[memeIndex]) {
@@ -140,7 +141,7 @@ export const registerUser = async (userAddress: string) => {
 
 export const updateUserBet = async (userAddress: string, battleId: string, memeIndex: number, betAmount: number) => {
   const userRef = doc(db, 'users', userAddress);
-  const battleRef = doc(db, 'memeBattles', battleId);
+  const battleRef = doc(db, 'battles', battleId);
 
   await updateDoc(userRef, {
     battlesParticipated: increment(1),
@@ -153,7 +154,7 @@ export const updateUserBet = async (userAddress: string, battleId: string, memeI
 };
 
 export const updateBattleWinner = async (battleId: string, winningMemeIndex: number) => {
-  const battleRef = doc(db, 'memeBattles', battleId);
+  const battleRef = doc(db, 'battles', battleId);
   const battleDoc = await getDoc(battleRef);
   const battleData = battleDoc.data();
 
@@ -175,7 +176,7 @@ export const updateBattleWinner = async (battleId: string, winningMemeIndex: num
 // Add this function to get battle status
 export const getBattleStatus = async (battleId: string) => {
   try {
-    const battleDoc = await getDoc(doc(db, "memeBattles", battleId));
+    const battleDoc = await getDoc(doc(db, "battles", battleId));
     if (battleDoc.exists()) {
       const battleData = battleDoc.data();
       return battleData.status || 'closed'; // Default to 'closed' if status is not set
@@ -192,7 +193,7 @@ export const getBattleStatus = async (battleId: string) => {
 // Add a function to update battle status
 export const updateBattleStatus = async (battleId: string, status: 'open' | 'closed') => {
   try {
-    const battleRef = doc(db, "memeBattles", battleId);
+    const battleRef = doc(db, "battles", battleId);
     await updateDoc(battleRef, { status });
     console.log(`Battle status updated to ${status}`);
     return true;

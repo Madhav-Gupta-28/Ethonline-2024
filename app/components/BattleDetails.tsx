@@ -15,6 +15,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
   const [battleEndTime, setBattleEndTime] = useState<Date | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [winningMemeIndex, setWinningMemeIndex] = useState<number | null>(null);
+  const [showDeclareWinnerButton, setShowDeclareWinnerButton] = useState(false);
 
   useEffect(() => {
     const fetchBattleDetails = async () => {
@@ -43,6 +44,10 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
         if (distance < 0) {
           clearInterval(timer);
           setTimeLeft("Battle Ended");
+          if (battle.winningMeme === null) {
+            // Show the "Declare Winner" button
+            setShowDeclareWinnerButton(true);
+          }
         } else {
           const hours = Math.floor(distance / (1000 * 60 * 60));
           const minutes = Math.floor(
@@ -77,7 +82,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
           method: "GET",
           headers: {
             "x-rapidapi-key":
-              "c026b6f1f8msh176b6da96f22657p17c629jsn3e43e020dd32",
+            process.env.NEXT_PUBLIC_RAPIDAPI_KEY as string,
             "x-rapidapi-host": "instagram-scraper-20231.p.rapidapi.com",
           },
         };
@@ -106,6 +111,22 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
       return;
     }
 
+    // try{
+    //   const provider = new ethers.providers.Web3Provider(window.ethereum);
+    //   const signer = provider.getSigner();
+    //   const contractAddress = "YOUR_CONTRACT_ADDRESS";
+    //   const contractABI = []; // Add your contract ABI here
+    //   const contract = new ethers.Contract(contractAddress, contractABI, signer);
+  
+    //   const tx = await contract.handleDeclareWinner(winningIndex); // Add 1 because meme IDs start from 1 in the contract
+    //   await tx.wait();
+  
+    //   console.log("Winner declared on-chain");
+    // }catch(error){
+    //   console.log(error)
+    // }
+
+
     const battleRef = doc(db, "battles", battleId);
     await updateDoc(battleRef, {
       winningMeme: winningIndex,
@@ -113,6 +134,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
 
     setWinningMemeIndex(winningIndex);
     setBattle({ ...battle, winningMeme: winningIndex });
+    setShowDeclareWinnerButton(false);
   };
 
   if (!battle) return <div>Loading...</div>;
@@ -142,7 +164,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
           </Link>
         ))}
       </div>
-      {timeLeft === "Battle Ended" && battle.winningMeme === null && (
+      {showDeclareWinnerButton && (
         <button
           onClick={declareWinner}
           className="mt-8 bg-green-500 text-white px-6 py-3 rounded-md hover:bg-green-600 transition-colors"
