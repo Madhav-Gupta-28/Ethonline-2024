@@ -4,6 +4,8 @@ import { ethers } from "ethers";
 import { EvmChains, IndexService, SignProtocolClient, SpMode } from '@ethsign/sp-sdk';
 import { decodeAbiParameters } from "viem";
 import { getBattleStatus, getWinningMeme } from '@/firebase';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Attestation {
   id: string;
@@ -119,6 +121,7 @@ const AttestationTable: React.FC = () => {
   const handleClaim = async (battleId: string, memeId: string) => {
     if (!address) {
       console.error('No wallet connected');
+      toast.error('No wallet connected. Please connect your wallet and try again.');
       return;
     }
 
@@ -127,6 +130,7 @@ const AttestationTable: React.FC = () => {
     });
 
     try {
+      toast.info('Creating claim attestation...', { autoClose: false });
       const createAttestationRes = await client.createAttestation(
         {
           schemaId: "0xe5",
@@ -151,10 +155,12 @@ const AttestationTable: React.FC = () => {
 
       if (createAttestationRes) {
         console.log('Claim attestation created successfully');
+        toast.success('Claim attestation created successfully!');
         // Update the UI or state as needed
       }
     } catch (error) {
       console.error('Error creating claim attestation:', error);
+      toast.error('Error creating claim attestation. Please try again.');
     }
   };
 
@@ -204,6 +210,7 @@ const AttestationTable: React.FC = () => {
           </table>
         </div>
       )}
+      <ToastContainer position="bottom-right" />
     </div>
   );
 };

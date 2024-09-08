@@ -27,6 +27,8 @@ import {
   EvmChains,
   AttestationResult,
 } from "@ethsign/sp-sdk";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Message {
   id: string;
@@ -194,7 +196,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
     console.log(currentBetAmount);
 
     if (!account) {
-      alert("Wallet not connected");
+      toast.error("Wallet not connected");
       return;
     }
 
@@ -205,20 +207,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
     if (!client) {
       console.error("SignProtocolClient is not initialized");
+      toast.error("Error initializing bet. Please try again.");
       return;
     }
 
-    const memeIdForContract = BigInt(memeIndex + 1); // Add 1 to memeIndex
-
+    const memeIdForContract = BigInt(memeIndex + 1);
 
     try {
+      toast.info("Placing bet...", { autoClose: false });
       const createAttestationRes = await client.createAttestation(
         {
           schemaId: "0xe5",
           data: {
             user: UserAddress,
-            battleId : battleId as string ,
-            meme_id: memeIdForContract as BigInt,  
+            battleId: battleId as string,
+            meme_id: memeIdForContract as BigInt,
             bet_amount: betAmountWei,
             bet_timestamp: Math.floor(Date.now() / 1000),
             win_amount: BigInt(0),
@@ -237,20 +240,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       if (createAttestationRes) {
         setAttestationCreated(true);
 
-        // Add user bet
-        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount) ,{
+        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount), {
           name: String(3) || '',
           image: meme?.image || '',
           hashtag: meme?.hashtag || ''
         });
-  
+
         console.log(`Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`);
         setBetAmount("");
+        toast.success(`Bet of ${currentBetAmount} ETH placed successfully!`);
       } else {
-        alert("Creation of Attestation Failed");
+        toast.error("Failed to place bet. Please try again.");
       }
     } catch (error) {
       console.log("Error when running createAttestation function", error);
+      toast.error("Error placing bet. Please try again.");
     }
   };
 
@@ -335,6 +339,7 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
           Send
         </button>
       </form>
+      <ToastContainer position="bottom-right" />
     </div>
   );
 };

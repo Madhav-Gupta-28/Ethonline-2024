@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardBody, Image } from "@nextui-org/react";
 import { ethers } from "ethers";
 import { abi , contractAddress} from "../../../constant/abi";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AddMemeBattle: React.FC = () => {
   const [battleName, setBattleName] = useState('');
@@ -73,12 +75,22 @@ const AddMemeBattle: React.FC = () => {
           const memeNames = memes.map(meme => meme.name);
           await createBattleOnContract(battleId, memeNames);
           console.log('All memes added to battle');
-          router.push('/battles');
+          toast.success('Meme battle created successfully!', {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          // router.push('/battles');
         } else {
           console.error('Failed to create meme battle');
+          toast.error('Failed to create meme battle. Please try again.');
         }
       } catch (error) {
         console.error('Error in handleSubmit:', error);
+        toast.error('An error occurred while creating the meme battle.');
       }
     }
   };
@@ -187,6 +199,7 @@ const AddMemeBattle: React.FC = () => {
           </button>
         </form>
       </div>
+      <ToastContainer />
     </div>
   );
 };
