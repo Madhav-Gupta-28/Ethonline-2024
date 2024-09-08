@@ -85,6 +85,7 @@ const UserBattleCard = ({ battle, userBetMemeId, onClaimSuccess }: { battle: Bat
           schemaId: "0xda",
           data: {
             user: account as `0x${string}`,
+            // battleId : battleId as string ,
             meme_id: BigInt(battle.memes.indexOf(userMeme)),
             bet_amount: BigInt(0),
             bet_timestamp: Math.floor(Date.now() / 1000),

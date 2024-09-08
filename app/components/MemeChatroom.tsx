@@ -208,17 +208,19 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       return;
     }
 
+    const memeIdForContract = BigInt(memeIndex + 1); // Add 1 to memeIndex
+
+
     try {
       const createAttestationRes = await client.createAttestation(
         {
-          schemaId: "0xda",
+          schemaId: "0xe5",
           data: {
             user: UserAddress,
-            // meme_id: roomIdBigInt,
-            meme_id : BigInt(2),
+            battleId : battleId as string ,
+            meme_id: memeIdForContract as BigInt,  
             bet_amount: betAmountWei,
             bet_timestamp: Math.floor(Date.now() / 1000),
-            result: false,
             win_amount: BigInt(0),
             action: "USER_BET",
           },

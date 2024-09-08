@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { addMemeBattle, addMemeToBattle } from '../../../firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardBody, Image } from "@nextui-org/react";
+import { ethers } from "ethers";
+import { abi , contractAddress} from "../../../constant/abi";
 
 const AddMemeBattle: React.FC = () => {
   const [battleName, setBattleName] = useState('');
@@ -40,6 +42,26 @@ const AddMemeBattle: React.FC = () => {
     }
   };
 
+
+  const createBattleOnContract = async (battleId: string, memeNames: string[]) => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const contract = new ethers.Contract(contractAddress, abi, signer);
+  
+        const tx = await contract.createBattle(battleId, memeNames, 3000);
+        await tx.wait();
+        console.log('Battle created on contract');
+      } catch (error) {
+        console.error('Error creating battle on contract:', error);
+      }
+    } else {
+      console.error('Ethereum object not found, do you have MetaMask installed?');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateBattleFields() && memes.length > 0) {
@@ -48,6 +70,8 @@ const AddMemeBattle: React.FC = () => {
         const battleId = await addMemeBattle({ name: battleName, description: battleDescription, memes });
         console.log('Meme battle added, ID:', battleId);
         if (battleId) {
+          const memeNames = memes.map(meme => meme.name);
+          await createBattleOnContract(battleId, memeNames);
           console.log('All memes added to battle');
           router.push('/battles');
         } else {

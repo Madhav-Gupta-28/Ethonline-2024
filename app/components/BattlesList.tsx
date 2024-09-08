@@ -55,9 +55,9 @@ const BattlesList: React.FC = () => {
       <div className="text-white text-center mt-10">
         No battles found. Create a new battle to get started!
         <div className="mt-4">
-          <Link
-            href="/addMemeBattle"
-            className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-6 py-3 rounded-lg shadow-lg hover:from-green-500 hover:to-blue-600 transition-transform transform hover:scale-105"
+        <Link
+            href="/battles/addMemeBattle"
+            className="text-white bg-gradient-to-br from-[#410DEF] to-[#8301D3] hover:bg-gradient-to-bl font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2"
           >
             Add New Meme Battle
           </Link>
