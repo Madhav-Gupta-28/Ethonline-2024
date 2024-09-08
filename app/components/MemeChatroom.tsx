@@ -27,6 +27,8 @@ import {
   EvmChains,
   AttestationResult,
 } from "@ethsign/sp-sdk";
+import doge_pp from "../public/doge_pp.jpg";
+import Image from "next/image";
 
 interface Message {
   id: string;
@@ -210,15 +212,14 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
 
     const memeIdForContract = BigInt(memeIndex + 1); // Add 1 to memeIndex
 
-
     try {
       const createAttestationRes = await client.createAttestation(
         {
           schemaId: "0xe5",
           data: {
             user: UserAddress,
-            battleId : battleId as string ,
-            meme_id: memeIdForContract as BigInt,  
+            battleId: battleId as string,
+            meme_id: memeIdForContract as BigInt,
             bet_amount: betAmountWei,
             bet_timestamp: Math.floor(Date.now() / 1000),
             win_amount: BigInt(0),
@@ -238,13 +239,21 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
         setAttestationCreated(true);
 
         // Add user bet
-        await addUserBet(UserAddress, battleId, memeIndex.toString(), Number(currentBetAmount) ,{
-          name: String(3) || '',
-          image: meme?.image || '',
-          hashtag: meme?.hashtag || ''
-        });
-  
-        console.log(`Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`);
+        await addUserBet(
+          UserAddress,
+          battleId,
+          memeIndex.toString(),
+          Number(currentBetAmount),
+          {
+            name: String(3) || "",
+            image: meme?.image || "",
+            hashtag: meme?.hashtag || "",
+          }
+        );
+
+        console.log(
+          `Bet of ${betAmount} placed successfully on meme ${memeIndex} in battle ${battleId}`
+        );
         setBetAmount("");
       } else {
         alert("Creation of Attestation Failed");
@@ -310,7 +319,16 @@ const MemeChatroom: React.FC<MemeChatroomProps> = ({ battleId, memeIndex }) => {
       <div className="mb-6 h-64 overflow-y-auto border border-[#6B0CDF] p-4 bg-[#18191A] rounded-lg shadow-lg">
         {messages.map((message) => (
           <div key={message.id} className="mb-4 flex items-start gap-2">
-            <div className="w-10 h-10 bg-purple-700 rounded-full flex-shrink-0" />
+            {/* <div className="w-10 h-10 bg-purple-700 rounded-full flex-shrink-0" /> */}
+            <div className="w-10 h-10 rounded-full flex-shrink-0 relative overflow-hidden">
+              <Image
+                src={doge_pp}
+                alt="Profile Picture"
+                layout="fill"
+                objectFit="cover"
+                className="rounded-full"
+              />
+            </div>
             <div className="flex flex-col">
               <span className="font-bold text-[#6B0CDF]">
                 {message.sender.slice(0, 6)}...{message.sender.slice(-4)}
