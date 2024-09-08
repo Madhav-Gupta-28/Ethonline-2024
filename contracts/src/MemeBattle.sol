@@ -7,9 +7,11 @@ import "lib/sign-protocol-evm/src/interfaces/ISP.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "./User.sol";
 
-contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
+contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
     ISP private s_baseIspContract;
     User public userContract;
+
+
 
     struct Meme {
         string name;
@@ -21,27 +23,45 @@ contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
         bool claimed;
     }
 
-    mapping(uint256 => Meme) public memes;
-    mapping(uint256 => mapping(address => Bet)) public bets;
-    mapping(uint256 => address[]) public betters;
-    uint256 public winningMemeId;
-    bool public battleEnded;
-    uint256 public memeCount;
-    mapping(address => uint256) public winnings;
+    struct Battle {
+        string[] memes;
+        uint256 winningMemeId;
+        uint256 startTime;
+        uint256 deadline;
+        bool ended;
+        mapping(uint256 => Meme) memeInfo;
+        mapping(uint256 => mapping(address => Bet)) bets;
+        mapping(uint256 => address[]) betters;
+    }
 
-    event BetPlaced(address indexed user, uint256 indexed memeId, uint256 amount);
-    event WinnerDeclared(uint256 indexed memeId);
-    event RewardClaimed(address indexed user, uint256 reward);
+    mapping(string => Battle) public battles;
+    mapping(string => mapping(address => uint256)) public winnings;
+
+    event BattleCreated(string battleId, string[] memes, uint256 startTime, uint256 deadline);
+    event BetPlaced(string battleId, address indexed user, uint256 indexed memeId, uint256 amount);
+    event WinnerDeclared(string battleId, uint256 indexed memeId);
+    event RewardClaimed(string battleId, address indexed user, uint256 reward);
     event UserScoreUpdated(address indexed user, uint256 oldScore, uint256 newScore);
 
-    constructor(string[] memory _memeNames, address _userContractAddress) Ownable(msg.sender) {
+    constructor(address _userContractAddress) Ownable(msg.sender) {
         s_baseIspContract = ISP(0x4e4af2a21ebf62850fD99Eb6253E1eFBb56098cD);
         userContract = User(_userContractAddress);
-        
-        for (uint256 i = 0; i < _memeNames.length; i++) {
-            memeCount++;
-            memes[memeCount] = Meme(_memeNames[i], 0);
+    }
+
+    function createBattle(string memory battleId, string[] memory memeNames, uint256 duration) external onlyOwner {
+        require(battles[battleId].startTime == 0, "Battle already exists");
+        require(memeNames.length > 1, "At least two memes required");
+
+        Battle storage newBattle = battles[battleId];
+        newBattle.memes = memeNames;
+        newBattle.startTime = block.timestamp;
+        newBattle.deadline = block.timestamp + duration;
+
+        for (uint256 i = 0; i < memeNames.length; i++) {
+            newBattle.memeInfo[i + 1] = Meme(memeNames[i], 0);
         }
+
+        emit BattleCreated(battleId, memeNames, newBattle.startTime, newBattle.deadline);
     }
 
     function didReceiveAttestation(
@@ -51,42 +71,48 @@ contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
         bytes calldata
     ) public payable override nonReentrant {
         Attestation memory attestationInfo = s_baseIspContract.getAttestation(attestationId);
-
         
-        
-        (address user  , uint256 meme_id , uint256 bet_amount , uint256 bet_timestamp , bool result  , uint256 win_amount , string memory action) = abi.decode(attestationInfo.data, (address,uint256,uint256,uint256,bool,uint256,string));
+        (address user, string memory battleId, uint256 meme_id, uint256 bet_amount, uint256 bet_timestamp, uint256 win_amount, string memory action) = abi.decode(attestationInfo.data, (address,string,uint256,uint256,uint256,uint256,string));
 
         require(msg.value >= bet_amount, "Insufficient payment");
 
         if (keccak256(abi.encodePacked(action)) == keccak256(abi.encodePacked("USER_BET"))) {
-            handleUserBet(attester, user , meme_id , bet_amount , bet_timestamp );
+            handleUserBet(attester, user, battleId, meme_id, bet_amount, bet_timestamp);
         } else if (keccak256(abi.encodePacked(action)) == keccak256(abi.encodePacked("CLAIM"))) {
-            handleClaimReward(attester , user , meme_id);
+            handleClaimReward(attester, user, battleId, meme_id);
         } else {
             revert("Invalid action");
         }
     }
 
-    function handleUserBet(address attester, address user,  uint256 meme_id ,uint256 bet_amount , uint256 bet_timestamp) internal {
-
+    function handleUserBet(
+        address attester,
+        address user,
+        string memory battleId,  // Changed from uint256 to string memory
+        uint256 meme_id,  // Changed from string memory to uint256
+        uint256 bet_amount,
+        uint256 bet_timestamp
+    ) internal {
+        Battle storage battle = battles[battleId];
         require(attester == user, "Attester must be the user");
-
-        require(!battleEnded, "Battle has ended");
-        require(meme_id <= memeCount && meme_id > 0, "Invalid meme ID");
+        require(!battle.ended, "Battle has ended");
+        require(block.timestamp < battle.deadline, "Betting period has ended");
+        
+        uint256 memeIndex = findMemeIndex(battle, meme_id);
+        require(memeIndex != 0, "Invalid meme ID");
+        
         require(bet_amount > 0, "Bet amount must be greater than 0");
-      
-        require(bets[meme_id][user].amount == 0, "User has already bet on this meme");
+        require(battle.bets[memeIndex][user].amount == 0, "User has already bet on this meme");
 
+        battle.bets[memeIndex][user].amount += bet_amount;
+        battle.betters[memeIndex].push(user);
+        battle.memeInfo[memeIndex].totalStaked += bet_amount;
 
-        bets[meme_id][user].amount += bet_amount;
-        betters[meme_id].push(user);
-        memes[meme_id].totalStaked += bet_amount;
+        emit BetPlaced(battleId, user, memeIndex, bet_amount);
 
-        emit BetPlaced(user, meme_id, bet_amount);
-
-        uint256 userScoreBefore = userContract.getUserScore(user);
-        userContract.updateBetStats(user, bet_amount);
-        uint256 userScoreAfter = userContract.getUserScore(user);
+        uint256 userScoreBefore = userContract.getUserScore(battleId, user);
+        userContract.updateBetStats(battleId, user, bet_amount);
+        uint256 userScoreAfter = userContract.getUserScore(battleId, user);
 
         emit UserScoreUpdated(user, userScoreBefore, userScoreAfter);
 
@@ -95,56 +121,73 @@ contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
         }
     }
 
-    function handleDeclareWinner(uint256 winningMemeId) internal {
-        require(!battleEnded, "Battle has already ended");
-        require(memeCount > 0, "No memes in the battle");
+    function declareWinner(string memory battleId, uint256 winningMemeId) external onlyOwner {
+        Battle storage battle = battles[battleId];
+        require(!battle.ended, "Battle has already ended");
+        require(block.timestamp >= battle.deadline, "Betting period not over");
+        require(winningMemeId <= battle.memes.length && winningMemeId > 0, "Invalid winning meme ID");
 
-        uint256 declaredWinningMemeId = winningMemeId;
-        require(declaredWinningMemeId <= memeCount && declaredWinningMemeId > 0, "Invalid winning meme ID");
-
-        winningMemeId = declaredWinningMemeId;
-        battleEnded = true;
+        battle.winningMemeId = winningMemeId;
+        battle.ended = true;
 
         uint256 totalPrizePool = address(this).balance;
-        uint256 winningMemeStake = memes[winningMemeId].totalStaked;
+        uint256 winningMemeStake = battle.memeInfo[winningMemeId].totalStaked;
 
-        for (uint256 i = 0; i < betters[winningMemeId].length; i++) {
-            address winner = betters[winningMemeId][i];
-            uint256 betAmount = bets[winningMemeId][winner].amount;
+        for (uint256 i = 0; i < battle.betters[winningMemeId].length; i++) {
+            address winner = battle.betters[winningMemeId][i];
+            uint256 betAmount = battle.bets[winningMemeId][winner].amount;
             uint256 reward = (betAmount * totalPrizePool) / winningMemeStake;
 
-            winnings[winner] = reward;
+            winnings[battleId][winner] = reward;
             
-            uint256 userScoreBefore = userContract.getUserScore(winner);
-            userContract.updateWinStats(winner);
-            uint256 userScoreAfter = userContract.getUserScore(winner);
+            uint256 userScoreBefore = userContract.getUserScore(battleId, winner);
+            userContract.updateWinStats(battleId, winner);
+            uint256 userScoreAfter = userContract.getUserScore(battleId, winner);
 
             emit UserScoreUpdated(winner, userScoreBefore, userScoreAfter);
         }
 
-        for (uint256 i = 1; i <= memeCount; i++) {
+        for (uint256 i = 1; i <= battle.memes.length; i++) {
             if (i != winningMemeId) {
-                for (uint256 j = 0; j < betters[i].length; j++) {
-                    address loser = betters[i][j];
-                    userContract.updateLossStats(loser);
+                for (uint256 j = 0; j < battle.betters[i].length; j++) {
+                    address loser = battle.betters[i][j];
+                    userContract.updateLossStats(battleId, loser);
                 }
             }
         }
 
-        emit WinnerDeclared(winningMemeId);
+        emit WinnerDeclared(battleId, winningMemeId);
     }
 
-    function handleClaimReward(address attester , address user , uint256 meme_id) internal {
-        require(battleEnded, "Battle has not ended yet");
-        require(winnings[user] > 0, "No winnings to claim");
-        require(!bets[winningMemeId][user].claimed, "Reward already claimed");
+    function handleClaimReward(
+        address attester,
+        address user,
+        string memory battleId,  // Changed from uint256 to string memory
+        uint256 meme_id  // Changed from string memory to uint256
+    ) internal {
+        Battle storage battle = battles[battleId];
+        require(battle.ended, "Battle has not ended yet");
+        require(winnings[battleId][user] > 0, "No winnings to claim");
+        
+        uint256 winningMemeIndex = findMemeIndex(battle, meme_id);
+        require(winningMemeIndex == battle.winningMemeId, "Not the winning meme");
+        require(!battle.bets[winningMemeIndex][user].claimed, "Reward already claimed");
 
-        uint256 reward = winnings[user];
-        bets[winningMemeId][user].claimed = true;
-        winnings[user] = 0;
+        uint256 reward = winnings[battleId][user];
+        battle.bets[winningMemeIndex][user].claimed = true;
+        winnings[battleId][user] = 0;
 
         payable(user).transfer(reward);
-        emit RewardClaimed(user, reward);
+        emit RewardClaimed(battleId, user, reward);
+    }
+
+    function findMemeIndex(Battle storage battle, uint256 meme_id) internal view returns (uint256) {
+        for (uint256 i = 1; i <= battle.memes.length; i++) {
+            if (i == meme_id) {
+                return i;
+            }
+        }
+        return 0; // Return 0 if meme not found
     }
 
     function didReceiveRevocation(
@@ -178,13 +221,14 @@ contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
         revert("ERC20 tokens not supported");
     }
 
-    function getUserScore(address user) external view returns (uint256) {
-        return userContract.getUserScore(user);
-    }
+    // function getUserScore(address user) external view returns (uint256) {
+    //     return userContract.getUserScore(user);
+    // }
 
-    function getUserStats(address user) external view returns (User.UserStats memory) {
-        return userContract.getUserStats(user);
-    }
+    // function getUserStats(address user) public view returns (UserStats memory) {
+    //     // Assuming the second argument is the contract address or some identifier
+    //     return userContract.getUserStats(user, address(this));
+    // }
 
     function stringToUint(string memory s) internal pure returns (uint256) {
         bytes memory b = bytes(s);
@@ -196,6 +240,11 @@ contract MemeBattle is ISPHook, Ownable  , ReentrancyGuard{
             }
         }
         return result;
+    }
+
+
+    function getWinnings(string memory battleId, address user) public view returns (uint256) {
+        return winnings[battleId][user];
     }
 
     receive() external payable {}
