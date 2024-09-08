@@ -5,6 +5,8 @@ import { db } from "@/firebase";
 import Link from "next/link";
 import { ethers } from "ethers";
 import { abi , contractAddress} from "../constant/abi";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Meme {
   name: string;
@@ -69,79 +71,89 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
 
   const declareWinner = async () => {
     if (battle.winningMeme !== null) {
-      alert("Winner has already been declared!");
+      toast.error("Winner has already been declared!");
       return;
     }
 
-    const memeResults = await Promise.all(
-      battle.memes.map(async (meme: Meme) => {
-        if (!meme.hashtag) {
-          console.error("Meme is missing hashtag:", meme);
-          return { meme, mediaCount: 0 };
-        }
+    try {
+      const memeResults = await Promise.all(
+        battle.memes.map(async (meme: Meme) => {
+          if (!meme.hashtag) {
+            console.error("Meme is missing hashtag:", meme);
+            return { meme, mediaCount: 0 };
+          }
 
-        const url = `https://instagram-scraper-20231.p.rapidapi.com/searchtag/${encodeURIComponent(
-          meme.hashtag
-        )}`;
-        const options = {
-          method: "GET",
-          headers: {
-            "x-rapidapi-key":
-            process.env.NEXT_PUBLIC_RAPIDAPI_KEY as string,
-            "x-rapidapi-host": "instagram-scraper-20231.p.rapidapi.com",
-          },
-        };
+          const url = `https://instagram-scraper-20231.p.rapidapi.com/searchtag/${encodeURIComponent(
+            meme.hashtag
+          )}`;
+          const options = {
+            method: "GET",
+            headers: {
+              "x-rapidapi-key": process.env.NEXT_PUBLIC_RAPIDAPI_KEY as string,
+              "x-rapidapi-host": "instagram-scraper-20231.p.rapidapi.com",
+            },
+          };
 
-        try {
-          const response = await fetch(url, options);
-          const result = await response.json();
-          return { meme, mediaCount: result.data[0]?.media_count || 0 };
-        } catch (error) {
-          console.error("Error fetching hashtag data:", error);
-          return { meme, mediaCount: 0 };
-        }
-      })
-    );
+          try {
+            const response = await fetch(url, options);
+            const result = await response.json();
+            return { meme, mediaCount: result.data[0]?.media_count || 0 };
+          } catch (error) {
+            console.error("Error fetching hashtag data:", error);
+            return { meme, mediaCount: 0 };
+          }
+        })
+      );
 
-    const winningMeme = memeResults.reduce((prev, current) =>
-      prev.mediaCount > current.mediaCount ? prev : current
-    );
+      const winningMeme = memeResults.reduce((prev, current) =>
+        prev.mediaCount > current.mediaCount ? prev : current
+      );
 
-    const winningIndex = battle.memes.findIndex(
-      (meme: Meme) => meme.hashtag === winningMeme.meme.hashtag
-    );
+      const winningIndex = battle.memes.findIndex(
+        (meme: Meme) => meme.hashtag === winningMeme.meme.hashtag
+      );
 
-    if (winningIndex === -1) {
-      console.error("Winning meme not found in battle memes");
-      return;
-    }
-
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const contract = new ethers.Contract(contractAddress, abi, signer);
-  
-        const tx = await contract.declareWinner(battleId, winningIndex + 1 as BigInt);
-        await tx.wait();
-        console.log('Battle created on contract');
-      } catch (error) {
-        console.error('Error creating battle on contract:', error);
+      if (winningIndex === -1) {
+        console.error("Winning meme not found in battle memes");
+        toast.error("Error determining the winner. Please try again.");
+        return;
       }
-    } else {
-      console.error('Ethereum object not found, do you have MetaMask installed?');
+
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const contract = new ethers.Contract(contractAddress, abi, signer);
+
+          toast.info("Declaring winner on the blockchain...", { autoClose: false });
+          const tx = await contract.declareWinner(battleId, winningIndex + 1 as BigInt);
+          await tx.wait();
+          toast.success("Winner declared on the blockchain!");
+        } catch (error) {
+          console.error('Error declaring winner on contract:', error);
+          toast.error("Error declaring winner on the blockchain. Please try again.");
+          return;
+        }
+      } else {
+        console.error('Ethereum object not found, do you have MetaMask installed?');
+        toast.error("MetaMask not detected. Please install MetaMask and try again.");
+        return;
+      }
+
+      const battleRef = doc(db, "battles", battleId);
+      await updateDoc(battleRef, {
+        winningMeme: winningIndex,
+      });
+
+      setWinningMemeIndex(winningIndex);
+      setBattle({ ...battle, winningMeme: winningIndex });
+      setShowDeclareWinnerButton(false);
+      toast.success(`Winner declared: ${battle.memes[winningIndex].name}`);
+    } catch (error) {
+      console.error("Error in declareWinner:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     }
-
-
-    const battleRef = doc(db, "battles", battleId);
-    await updateDoc(battleRef, {
-      winningMeme: winningIndex,
-    });
-
-    setWinningMemeIndex(winningIndex);
-    setBattle({ ...battle, winningMeme: winningIndex });
-    setShowDeclareWinnerButton(false);
   };
 
   if (!battle) return <div>Loading...</div>;
@@ -212,6 +224,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
           />
         </div>
       )}
+      <ToastContainer position="bottom-right" />
     </div>
   );
 };
