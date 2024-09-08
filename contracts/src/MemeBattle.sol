@@ -7,11 +7,14 @@ import "lib/sign-protocol-evm/src/interfaces/ISP.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "./User.sol";
 
+/**
+ * @title MemeBattle
+ * @dev A contract for managing meme battles and bets
+ * @notice This contract allows users to create battles, place bets, and claim rewards
+ */
 contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
     ISP private s_baseIspContract;
     User public userContract;
-
-
 
     struct Meme {
         string name;
@@ -34,7 +37,9 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         mapping(uint256 => address[]) betters;
     }
 
+    // Mapping of battle IDs to Battle structs
     mapping(string => Battle) public battles;
+    // Mapping of battle IDs and user addresses to their winnings
     mapping(string => mapping(address => uint256)) public winnings;
 
     event BattleCreated(string battleId, string[] memes, uint256 startTime, uint256 deadline);
@@ -43,12 +48,22 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
     event RewardClaimed(string battleId, address indexed user, uint256 reward);
     event UserScoreUpdated(address indexed user, uint256 oldScore, uint256 newScore);
 
+    /**
+     * @dev Constructor to initialize the MemeBattle contract
+     * @param _userContractAddress Address of the User contract
+     */
     constructor(address _userContractAddress) Ownable(msg.sender) {
         s_baseIspContract = ISP(0x4e4af2a21ebf62850fD99Eb6253E1eFBb56098cD);
         userContract = User(_userContractAddress);
     }
 
-    function createBattle(string memory battleId, string[] memory memeNames, uint256 duration) external onlyOwner {
+    /**
+     * @dev Creates a new battle
+     * @param battleId ID of the battle
+     * @param memeNames Array of meme names
+     * @param duration Duration of the battle in seconds
+     */
+    function createBattle(string memory battleId, string[] memory memeNames, uint256 duration) external  {
         require(battles[battleId].startTime == 0, "Battle already exists");
         require(memeNames.length > 1, "At least two memes required");
 
@@ -64,6 +79,12 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         emit BattleCreated(battleId, memeNames, newBattle.startTime, newBattle.deadline);
     }
 
+    /**
+     * @dev Handles incoming attestations
+     * @param attester Address of the attester
+     * @param attestationId ID of the attestation
+     * @notice This function decodes the attestation data and routes it to the appropriate handler
+     */
     function didReceiveAttestation(
         address attester,
         uint64,
@@ -85,11 +106,20 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev Handles user bet placement
+     * @param attester Address of the attester
+     * @param user Address of the user placing the bet
+     * @param battleId ID of the battle
+     * @param meme_id ID of the meme being bet on
+     * @param bet_amount Amount of the bet
+     * @param bet_timestamp Timestamp of the bet
+     */
     function handleUserBet(
         address attester,
         address user,
-        string memory battleId,  // Changed from uint256 to string memory
-        uint256 meme_id,  // Changed from string memory to uint256
+        string memory battleId,
+        uint256 meme_id,
         uint256 bet_amount,
         uint256 bet_timestamp
     ) internal {
@@ -121,6 +151,11 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @dev Declares the winner of a battle
+     * @param battleId ID of the battle
+     * @param winningMemeId ID of the winning meme
+     */
     function declareWinner(string memory battleId, uint256 winningMemeId) external onlyOwner {
         Battle storage battle = battles[battleId];
         require(!battle.ended, "Battle has already ended");
@@ -159,11 +194,18 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         emit WinnerDeclared(battleId, winningMemeId);
     }
 
+    /**
+     * @dev Handles reward claiming for winners
+     * @param attester Address of the attester
+     * @param user Address of the user claiming the reward
+     * @param battleId ID of the battle
+     * @param meme_id ID of the meme
+     */
     function handleClaimReward(
         address attester,
         address user,
-        string memory battleId,  // Changed from uint256 to string memory
-        uint256 meme_id  // Changed from string memory to uint256
+        string memory battleId,
+        uint256 meme_id
     ) internal {
         Battle storage battle = battles[battleId];
         require(battle.ended, "Battle has not ended yet");
@@ -181,6 +223,12 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         emit RewardClaimed(battleId, user, reward);
     }
 
+    /**
+     * @dev Finds the index of a meme in a battle
+     * @param battle The Battle struct
+     * @param meme_id ID of the meme to find
+     * @return The index of the meme, or 0 if not found
+     */
     function findMemeIndex(Battle storage battle, uint256 meme_id) internal view returns (uint256) {
         for (uint256 i = 1; i <= battle.memes.length; i++) {
             if (i == meme_id) {
@@ -190,6 +238,10 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         return 0; // Return 0 if meme not found
     }
 
+    /**
+     * @dev Handles revocation of bets
+     * @notice This function is not implemented and will revert if called
+     */
     function didReceiveRevocation(
         address,
         uint64,
@@ -199,6 +251,10 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         revert("Bet revocation not allowed");
     }
 
+    /**
+     * @dev Handles incoming attestations for ERC20 tokens
+     * @notice This function is not implemented and will revert if called
+     */
     function didReceiveAttestation(
         address,
         uint64,
@@ -210,6 +266,10 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         revert("ERC20 tokens not supported");
     }
 
+    /**
+     * @dev Handles revocation of ERC20 tokens
+     * @notice This function is not implemented and will revert if called
+     */
     function didReceiveRevocation(
         address,
         uint64,
@@ -221,15 +281,11 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         revert("ERC20 tokens not supported");
     }
 
-    // function getUserScore(address user) external view returns (uint256) {
-    //     return userContract.getUserScore(user);
-    // }
-
-    // function getUserStats(address user) public view returns (UserStats memory) {
-    //     // Assuming the second argument is the contract address or some identifier
-    //     return userContract.getUserStats(user, address(this));
-    // }
-
+    /**
+     * @dev Converts a string to a uint256
+     * @param s The string to convert
+     * @return The resulting uint256
+     */
     function stringToUint(string memory s) internal pure returns (uint256) {
         bytes memory b = bytes(s);
         uint256 result = 0;
@@ -242,10 +298,18 @@ contract MemeBattle is ISPHook, Ownable, ReentrancyGuard {
         return result;
     }
 
-
+    /**
+     * @dev Gets the winnings for a user in a specific battle
+     * @param battleId ID of the battle
+     * @param user Address of the user
+     * @return The amount of winnings for the user
+     */
     function getWinnings(string memory battleId, address user) public view returns (uint256) {
         return winnings[battleId][user];
     }
 
+    /**
+     * @dev Fallback function to receive Ether
+     */
     receive() external payable {}
 }
