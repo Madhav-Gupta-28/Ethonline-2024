@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 import Link from "next/link";
+import { ethers } from "ethers";
+import { abi , contractAddress} from "../constant/abi";
 
 interface Meme {
   name: string;
@@ -16,6 +18,7 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [winningMemeIndex, setWinningMemeIndex] = useState<number | null>(null);
   const [showDeclareWinnerButton, setShowDeclareWinnerButton] = useState(false);
+  const [showTestButton, setShowTestButton] = useState(true);
 
   useEffect(() => {
     const fetchBattleDetails = async () => {
@@ -57,6 +60,8 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
         }
       }, 1000);
+
+      
 
       return () => clearInterval(timer);
     }
@@ -111,20 +116,22 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
       return;
     }
 
-    // try{
-    //   const provider = new ethers.providers.Web3Provider(window.ethereum);
-    //   const signer = provider.getSigner();
-    //   const contractAddress = "YOUR_CONTRACT_ADDRESS";
-    //   const contractABI = []; // Add your contract ABI here
-    //   const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const contract = new ethers.Contract(contractAddress, abi, signer);
   
-    //   const tx = await contract.handleDeclareWinner(winningIndex); // Add 1 because meme IDs start from 1 in the contract
-    //   await tx.wait();
-  
-    //   console.log("Winner declared on-chain");
-    // }catch(error){
-    //   console.log(error)
-    // }
+        const tx = await contract.declareWinner(battleId, winningIndex + 1 as BigInt);
+        await tx.wait();
+        console.log('Battle created on contract');
+      } catch (error) {
+        console.error('Error creating battle on contract:', error);
+      }
+    } else {
+      console.error('Ethereum object not found, do you have MetaMask installed?');
+    }
 
 
     const battleRef = doc(db, "battles", battleId);
@@ -138,6 +145,27 @@ const BattleDetails: React.FC<{ battleId: string }> = ({ battleId }) => {
   };
 
   if (!battle) return <div>Loading...</div>;
+
+
+  // const callContractDeclareWinner = async (winningIndex: number) => {
+  //   if (typeof window.ethereum !== 'undefined') {
+  //     try {
+  //       await window.ethereum.request({ method: 'eth_requestAccounts' });
+  //       const provider = new ethers.BrowserProvider(window.ethereum);
+  //       const signer = await provider.getSigner();
+  //       const contract = new ethers.Contract(contractAddress, abi, signer);
+  
+  //       const tx = await contract.declareWinner(battleId, winningIndex + 1);
+  //       await tx.wait();
+  //       console.log('Winner declared on contract');
+  //       setShowTestButton(false);
+  //     } catch (error) {
+  //       console.error('Error declaring winner on contract:', error);
+  //     }
+  //   } else {
+  //     console.error('Ethereum object not found, do you have MetaMask installed?');
+  //   }
+  // };
 
   return (
     <div className="p-6 bg-[#080B0F] min-h-screen">

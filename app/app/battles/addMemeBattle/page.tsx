@@ -51,7 +51,7 @@ const AddMemeBattle: React.FC = () => {
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, abi, signer);
   
-        const tx = await contract.createBattle(battleId, memeNames, 3000);
+        const tx = await contract.createBattle(battleId, memeNames, 240);
         await tx.wait();
         console.log('Battle created on contract');
       } catch (error) {

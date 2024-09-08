@@ -22,7 +22,7 @@ export const addMemeBattle = async (battle: { name: string; description: string;
       ...battle,
       createdAt: serverTimestamp(),
       // endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      endTime: new Date(Date.now() + 2 * 60* 1000 ),
+      endTime: new Date(Date.now() + 4 * 60* 1000 ),
       status: 'active',
       winningMeme: null // Add this line
     });
@@ -346,4 +346,13 @@ export const getUserMemes = async (userId: string) => {
     console.error("Error fetching user memes: ", e);
     return [];
   }
+};
+
+export const getWinningMeme = async (battleId: string) => {
+  const battleRef = doc(db, 'battles', battleId);
+  const battleDoc = await getDoc(battleRef);
+  if (battleDoc.exists()) {
+    return battleDoc.data().winningMeme;
+  }
+  return null;
 };
